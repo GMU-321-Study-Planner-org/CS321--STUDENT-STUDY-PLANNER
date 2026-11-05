@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan of Study</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Plan of Study</h1>
+    <div class="top-actions">
+      <p id="status" role="status"></p>
+      <button id="sync-btn" class="ghost" hidden>Sync Canvas</button>
+      <button id="link-btn">Link Canvas calendar</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="courses">
+      <h2>Courses</h2>
+      <p class="hint">Set a priority from 1 to 5. Higher priority moves that course's work up your queue.</p>
+      <ul id="course-list"></ul>
+    </aside>
+
+    <section class="queue" aria-labelledby="queue-h">
+      <div class="section-head">
+        <h2 id="queue-h">Up next</h2>
+        <div class="row">
+          <button id="add-task-btn" class="ghost">Add task</button>
+          <button id="add-session-btn" class="ghost">Plan study session</button>
+        </div>
+      </div>
+      <ol id="queue-list"></ol>
+    </section>
+
+    <section class="week" aria-labelledby="week-h">
+      <div class="section-head">
+        <h2 id="week-h">This week</h2>
+        <div class="row">
+          <button id="prev-week" class="ghost" aria-label="Previous week">Previous</button>
+          <span id="week-label"></span>
+          <button id="next-week" class="ghost" aria-label="Next week">Next</button>
+        </div>
+      </div>
+      <div class="week-scroll"><div id="week-grid" class="week-grid"></div></div>
+    </section>
+  </main>
+
+  <datalist id="course-codes"></datalist>
+
+  <dialog id="link-dialog">
+    <form id="link-form">
+      <h2>Link your Canvas calendar</h2>
+      <p>In Canvas, open Calendar, choose Calendar Feed, and paste the link here. Keep it private: anyone with the link can read your calendar.</p>
+      <label>Calendar feed link
+        <input name="url" type="url" required placeholder="https://canvas.example.edu/feeds/calendars/user_….ics">
+      </label>
+      <p class="error" role="alert" hidden></p>
+      <div class="actions">
+        <button type="button" class="ghost" data-close>Cancel</button>
+        <button type="submit">Import assignments</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="task-dialog">
+    <form id="task-form">
+      <h2>Add a task</h2>
+      <label>Title <input name="title" required></label>
+      <label>Course <input name="course" list="course-codes" required placeholder="CS 450-004"></label>
+      <label>Due <input name="due" type="datetime-local" required></label>
+      <p class="error" role="alert" hidden></p>
+      <div class="actions">
+        <button type="button" class="ghost" data-close>Cancel</button>
+        <button type="submit">Add task</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="session-dialog">
+    <form id="session-form">
+      <h2>Plan a study session</h2>
+      <label>Course <input name="course" list="course-codes" required></label>
+      <label>Topic <input name="topic" placeholder="Chapter 4 practice problems"></label>
+      <label>Starts <input name="start" type="datetime-local" required></label>
+      <label>Length in minutes <input name="minutes" type="number" min="5" max="600" step="5" value="45" required></label>
+      <p class="error" role="alert" hidden></p>
+      <div class="actions">
+        <button type="button" class="ghost" data-close>Cancel</button>
+        <button type="submit">Add session</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
