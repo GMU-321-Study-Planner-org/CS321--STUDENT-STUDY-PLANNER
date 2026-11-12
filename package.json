@@ -1,0 +1,18 @@
+{
+  "name": "study-planner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "demo": "DEMO=1 TZ=America/New_York PLANNER_DB=demo.db node backend/server.js",
+    "test": "TZ=America/New_York node --test test/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.1.0",
+    "ical.js": "^2.2.1"
+  }
+}
