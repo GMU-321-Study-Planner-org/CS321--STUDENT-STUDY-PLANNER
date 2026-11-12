@@ -95,6 +95,7 @@ h2 { font-size: 1.5rem; font-weight: 700; }
 .chip[data-p="mid"] { --p: var(--green); }
 .chip[data-p="high"] { --p: var(--gold); }
 .chip.session { background: #DCEBE2; --p: var(--green); }
+.chip.event { background: transparent; border: 1px dashed var(--line); border-left: 4px solid var(--muted); }
 .chip time, .chip small { color: var(--muted); font-size: .72rem; }
 .chip[data-done="true"] { opacity: .55; }
 .chip[data-done="true"] span { text-decoration: line-through; }
