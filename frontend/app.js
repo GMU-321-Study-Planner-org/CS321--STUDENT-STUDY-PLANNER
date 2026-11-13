@@ -64,11 +64,18 @@ function renderCourses() {
 function renderQueue() {
   const list = $('#queue-list');
   if (!state.queue.length) {
-    list.innerHTML = `<li class="empty">${
-      state.linked ? 'Nothing due. Add a task or sync Canvas again.' : 'No assignments yet. Link your Canvas calendar to import them.'
-    }</li>`;
+    if (!state.linked) {
+      // New prominent empty state for users who haven't onboarded
+      list.innerHTML = `<li class="empty empty-hero">
+        <p>No assignments yet. Link your Canvas calendar to get started.</p>
+        <button class="empty-state-btn" onclick="$('#link-dialog').showModal()">Get Started: Link Canvas</button>
+      </li>`;
+    } else {
+      list.innerHTML = `<li class="empty">Nothing due. Add a task or sync Canvas again.</li>`;
+    }
     return;
   }
+  
   list.innerHTML = state.queue
     .map((a) => {
       const due = dueLabel(a.due_at);
@@ -81,6 +88,8 @@ function renderQueue() {
     })
     .join('');
 }
+
+
 
 function renderWeek() {
   const first = startOfDay(new Date());
@@ -136,6 +145,11 @@ function render() {
 async function load() {
   Object.assign(state, await api('/state'));
   render();
+  
+  // Auto-open onboarding if no Canvas link exists and they aren't already in a dialog
+  if (!state.linked && !$('#link-dialog').open && !$('#priority-dialog').open) {
+    $('#link-dialog').showModal();
+  }
 }
 
 /* ---------- events ---------- */
@@ -205,8 +219,54 @@ function wireForm(selector, path, toBody, okMessage) {
   });
 }
 
-wireForm('#link-form', '/calendar/link', (f) => ({ url: f.get('url') }), (r) => `Imported ${r.imported} items from Canvas.`);
-wireForm('#task-form', '/assignments',
+// Replaces the wireForm('#link-form'...) line to handle the multi-step onboarding
+const linkForm = $('#link-form');
+linkForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = linkForm.querySelector('.error');
+  errorEl.hidden = true;
+  try {
+    const formData = new FormData(linkForm);
+    const res = await api('/calendar/link', { method: 'POST', body: { url: formData.get('url') } });
+    
+    $('#link-dialog').close();
+    linkForm.reset();
+    
+    // Load state to get the newly imported courses
+    await load(); 
+    
+    // Copy the rendered course HTML into the dialog so they can set priorities immediately
+    $('#onboarding-course-list').innerHTML = $('#course-list').innerHTML;
+    $('#priority-dialog').showModal();
+    
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.hidden = false;
+  }
+});
+
+// Allow users to click priority buttons inside the onboarding dialog
+$('#onboarding-course-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-course]');
+  if (!btn) return;
+  
+  // ADDED: Stop the priority button from submitting the form and closing the dialog
+  e.preventDefault(); 
+  
+  try {
+    await api(`/courses/${btn.dataset.course}`, { method: 'PATCH', body: { priority: Number(btn.dataset.p) } });
+    await load();
+    // Refresh the dialog's course list so the pressed button updates visually
+    $('#onboarding-course-list').innerHTML = $('#course-list').innerHTML;
+  } catch (err) { say(err.message, true); }
+});
+
+// Close priority dialog and finish setup
+$('#priority-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  $('#priority-dialog').close();
+  say("Onboarding complete! Your schedule is ready.");
+});wireForm('#task-form', '/assignments',
   (f) => ({ title: f.get('title'), courseCode: f.get('course'), dueAt: new Date(f.get('due')).toISOString() }), 'Task added.');
 wireForm('#session-form', '/sessions',
   (f) => ({ courseCode: f.get('course'), topic: f.get('topic'), startsAt: new Date(f.get('start')).toISOString(), minutes: Number(f.get('minutes')) }),
