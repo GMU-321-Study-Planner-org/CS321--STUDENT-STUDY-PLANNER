@@ -21,7 +21,8 @@ function courseIdFor(code) {
   return db.prepare('SELECT id FROM courses WHERE code = ?').get(c).id;
 }
 
-const validDate = (s) => typeof s === 'string' && !Number.isNaN(Date.parse(s));
+const validDate = (s) => typeof s === 'string' && s.trim() !== '' && Number.isFinite(Date.parse(s));
+const validId = (raw) => /^[1-9]\d*$/.test(String(raw));
 
 // Wraps handlers so thrown errors become JSON the UI can show.
 const route = (fn) => (req, res) =>
@@ -74,6 +75,29 @@ app.post('/api/assignments', route((req, res) => {
     "INSERT INTO assignments (course_id, title, due_at, source) VALUES (?, ?, ?, 'manual')"
   ).run(courseIdFor(courseCode), title.trim(), new Date(dueAt).toISOString());
   res.status(201).json({ id: info.lastInsertRowid });
+}));
+
+// Manual assignments can be edited without changing Canvas-managed events.
+app.put('/api/assignments/:id', route((req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'Invalid assignment ID.' });
+  const existing = db.prepare('SELECT id, source FROM assignments WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Assignment not found.' });
+  if (existing.source !== 'manual') return res.status(403).json({ error: 'Canvas assignments cannot be edited here.' });
+  const { title, courseCode, dueAt } = req.body;
+  if (!String(title ?? '').trim() || !validDate(dueAt)) throw new Error('Add a title and a due date.');
+  const courseId = courseIdFor(courseCode);
+  db.prepare('UPDATE assignments SET title = ?, course_id = ?, due_at = ? WHERE id = ?')
+    .run(title.trim(), courseId, new Date(dueAt).toISOString(), req.params.id);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/assignments/:id', route((req, res) => {
+  if (!validId(req.params.id)) return res.status(400).json({ error: 'Invalid assignment ID.' });
+  const existing = db.prepare('SELECT id, source FROM assignments WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Assignment not found.' });
+  if (existing.source !== 'manual') return res.status(403).json({ error: 'Canvas assignments cannot be deleted here.' });
+  db.prepare('DELETE FROM assignments WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 }));
 
 app.patch('/api/assignments/:id', route((req, res) => {

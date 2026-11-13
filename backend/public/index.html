@@ -35,6 +35,10 @@
         </div>
       </div>
       <ol id="queue-list"></ol>
+      <section class="completed-section" aria-labelledby="completed-h">
+        <h3 id="completed-h">Completed assignments</h3>
+        <ul id="completed-list"></ul>
+      </section>
     </section>
 
     <section class="week" aria-labelledby="week-h">
@@ -69,14 +73,14 @@
 
   <dialog id="task-dialog">
     <form id="task-form">
-      <h2>Add a task</h2>
+      <h2 id="task-dialog-heading">Add a task</h2>
       <label>Title <input name="title" required></label>
       <label>Course <input name="course" list="course-codes" required placeholder="CS 450-004"></label>
       <label>Due <input name="due" type="datetime-local" required></label>
       <p class="error" role="alert" hidden></p>
       <div class="actions">
         <button type="button" class="ghost" data-close>Cancel</button>
-        <button type="submit">Add task</button>
+        <button type="submit" id="task-submit">Add task</button>
       </div>
     </form>
   </dialog>
