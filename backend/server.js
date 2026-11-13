@@ -76,6 +76,44 @@ app.post('/api/calendar/sync', route(async (req, res) => {
   res.json({ imported });
 }));
 
+// Clear imported Canvas data while keeping manually added tasks.
+app.delete('/api/calendar', route((req, res) => {
+  const result = db.transaction(() => {
+    const assignments = db.prepare(
+      "DELETE FROM assignments WHERE source = 'canvas'"
+    ).run().changes;
+
+    const events = db.prepare(
+      'DELETE FROM calendar_events'
+    ).run().changes;
+
+    db.prepare("DELETE FROM settings WHERE key = 'feed_url'").run();
+
+    return { assignments, events };
+  })();
+
+  res.json({ ok: true, ...result });
+}));
+
+// Clear imported Canvas data without deleting manually created tasks.
+app.delete('/api/calendar', route((req, res) => {
+  const result = db.transaction(() => {
+    const assignments = db.prepare(
+      "DELETE FROM assignments WHERE source = 'canvas'"
+    ).run().changes;
+
+    const events = db.prepare(
+      'DELETE FROM calendar_events'
+    ).run().changes;
+
+    db.prepare("DELETE FROM settings WHERE key = 'feed_url'").run();
+
+    return { assignments, events };
+  })();
+
+  res.json({ ok: true, ...result });
+}));
+
 app.post('/api/assignments', route((req, res) => {
   const { title, courseCode, dueAt } = req.body;
   if (!String(title ?? '').trim() || !validDate(dueAt)) throw new Error('Add a title and a due date.');
