@@ -126,6 +126,7 @@ function renderWeek() {
 
 function render() {
   $('#sync-btn').hidden = !state.linked;
+  $('#clear-btn').hidden = !state.linked;
   $('#link-btn').textContent = state.linked ? 'Change calendar link' : 'Link Canvas calendar';
   renderCourses();
   renderQueue();
@@ -164,6 +165,20 @@ $('#sync-btn').onclick = async () => {
     say(`Synced ${r.imported} items from Canvas.`);
     await load();
   } catch (err) { say(err.message, true); }
+};
+
+$('#clear-btn').onclick = async () => {
+  if (!confirm('Remove all imported Canvas assignments and events? Manual tasks will be kept.')) {
+    return;
+  }
+
+  try {
+    const result = await api('/calendar', { method: 'DELETE' });
+    await load();
+    say(`Cleared ${result.assignments} assignments and ${result.events} events.`);
+  } catch (err) {
+    say(err.message, true);
+  }
 };
 
 $('#link-btn').onclick = () => $('#link-dialog').showModal();
