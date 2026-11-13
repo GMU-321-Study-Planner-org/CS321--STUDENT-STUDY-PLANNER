@@ -1,4 +1,5 @@
 const $ = (sel) => document.querySelector(sel);
+let editingTaskId = null;
 const state = { courses: [], queue: [], done: [], sessions: [], linked: false, lastSync: null, weekOffset: 0 };
 
 /* ---------- helpers ---------- */
@@ -76,10 +77,24 @@ function renderQueue() {
       return `<li class="task" data-tone="${due.tone}">
         <input type="checkbox" data-id="${a.id}" aria-label="Mark ${esc(a.title)} complete">
         <div><div class="task-title">${title}</div><div class="task-meta">${esc(a.course_code)}</div></div>
-        <div class="task-due">${esc(due.text)}</div>
+        <div class="task-due">${esc(due.text)}
+          ${a.source === 'manual' ? `<div class="task-actions"><button class="ghost small" type="button" data-edit="${a.id}">Edit</button><button class="ghost small" type="button" data-delete="${a.id}">Delete</button></div>` : ''}
+        </div>
       </li>`;
     })
     .join('');
+}
+
+function renderCompleted() {
+  $('#completed-list').innerHTML = state.done.length
+    ? state.done.map((a) => `<li class="completed-task">
+        <span>${esc(a.title)} <small>(${esc(a.course_code)})</small></span>
+        <div class="task-actions">
+          <button class="ghost small" type="button" data-restore="${a.id}">Restore</button>
+          ${a.source === 'manual' ? `<button class="ghost small" type="button" data-edit="${a.id}">Edit</button><button class="ghost small" type="button" data-delete="${a.id}">Delete</button>` : ''}
+        </div>
+      </li>`).join('')
+    : '<li class="empty">No completed assignments yet.</li>';
 }
 
 function renderWeek() {
@@ -125,6 +140,7 @@ function render() {
   $('#link-btn').textContent = state.linked ? 'Change calendar link' : 'Link Canvas calendar';
   renderCourses();
   renderQueue();
+  renderCompleted();
   renderWeek();
 }
 
@@ -163,7 +179,56 @@ $('#sync-btn').onclick = async () => {
 };
 
 $('#link-btn').onclick = () => $('#link-dialog').showModal();
-$('#add-task-btn').onclick = () => $('#task-dialog').showModal();
+function openAddTask() {
+  editingTaskId = null;
+  $('#task-form').reset();
+  $('#task-form .error').hidden = true;
+  $('#task-dialog-heading').textContent = 'Add a task';
+  $('#task-submit').textContent = 'Add task';
+  $('#task-dialog').showModal();
+}
+
+function openEditTask(id) {
+  const a = [...state.queue, ...state.done].find((row) => String(row.id) === String(id));
+  if (!a || a.source !== 'manual') return;
+  editingTaskId = a.id;
+  const form = $('#task-form');
+  form.elements.title.value = a.title;
+  form.elements.course.value = a.course_code;
+  // datetime-local expects a local wall-clock time, not the UTC ISO string.
+  const d = new Date(a.due_at);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  form.elements.due.value = local.toISOString().slice(0, 16);
+  form.querySelector('.error').hidden = true;
+  $('#task-dialog-heading').textContent = 'Edit task';
+  $('#task-submit').textContent = 'Save changes';
+  $('#task-dialog').showModal();
+}
+
+async function handleTaskAction(e) {
+  const edit = e.target.closest('button[data-edit]');
+  if (edit) { openEditTask(edit.dataset.edit); return; }
+  const restore = e.target.closest('button[data-restore]');
+  if (restore) {
+    try {
+      await api(`/assignments/${restore.dataset.restore}`, { method: 'PATCH', body: { completed: false } });
+      await load();
+      say('Task restored.');
+    } catch (err) { say(err.message, true); }
+    return;
+  }
+  const del = e.target.closest('button[data-delete]');
+  if (del && window.confirm('Delete this manually added assignment? This cannot be undone.')) {
+    try {
+      await api(`/assignments/${del.dataset.delete}`, { method: 'DELETE' });
+      await load();
+      say('Task deleted.');
+    } catch (err) { say(err.message, true); }
+  }
+}
+$('#queue-list').addEventListener('click', handleTaskAction);
+$('#completed-list').addEventListener('click', handleTaskAction);
+$('#add-task-btn').onclick = openAddTask;
 $('#add-session-btn').onclick = () => $('#session-dialog').showModal();
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
 
@@ -187,8 +252,25 @@ function wireForm(selector, path, toBody, okMessage) {
 }
 
 wireForm('#link-form', '/calendar/link', (f) => ({ url: f.get('url') }), (r) => `Imported ${r.imported} items from Canvas.`);
-wireForm('#task-form', '/assignments',
-  (f) => ({ title: f.get('title'), courseCode: f.get('course'), dueAt: new Date(f.get('due')).toISOString() }), 'Task added.');
+$('#task-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const error = form.querySelector('.error');
+  error.hidden = true;
+  try {
+    const f = new FormData(form);
+    const body = { title: f.get('title'), courseCode: f.get('course'), dueAt: new Date(f.get('due')).toISOString() };
+    const isEdit = editingTaskId !== null;
+    await api(isEdit ? `/assignments/${editingTaskId}` : '/assignments', {
+      method: isEdit ? 'PUT' : 'POST', body,
+    });
+    $('#task-dialog').close();
+    form.reset();
+    editingTaskId = null;
+    await load();
+    say(isEdit ? 'Task updated.' : 'Task added.');
+  } catch (err) { error.textContent = err.message; error.hidden = false; }
+});
 wireForm('#session-form', '/sessions',
   (f) => ({ courseCode: f.get('course'), topic: f.get('topic'), startsAt: new Date(f.get('start')).toISOString(), minutes: Number(f.get('minutes')) }),
   'Study session added.');

@@ -112,3 +112,14 @@ dialog input { display: block; width: 100%; margin-top: .3rem; padding: .55rem .
   main { grid-template-columns: 1fr; }
   .courses { grid-row: auto; }
 }
+
+/* Issue #8: manual task actions and completed task management */
+.task-actions { display: flex; gap: .35rem; justify-content: flex-end; flex-wrap: wrap; margin-top: .3rem; }
+button.small { padding: .2rem .45rem; font-size: .78rem; }
+.completed-section { margin-top: 1.5rem; }
+.completed-section h3 { font-size: 1.1rem; margin-bottom: .5rem; }
+#completed-list { list-style: none; padding: 0; margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.completed-task { display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: .65rem 1rem; border-top: 1px solid var(--line); }
+.completed-task:first-child { border-top: 0; }
+.completed-task > span { text-decoration: line-through; color: var(--muted); }
+.completed-task small { font-size: .8rem; }
