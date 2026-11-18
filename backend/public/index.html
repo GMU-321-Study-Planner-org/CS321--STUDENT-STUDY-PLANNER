@@ -15,6 +15,7 @@
     <div class="top-actions">
       <p id="status" role="status"></p>
       <button id="sync-btn" class="ghost" hidden>Sync Canvas</button>
+      <button id="clear-btn" class="ghost" hidden>Clear Canvas</button>
       <button id="link-btn">Link Canvas calendar</button>
     </div>
   </header>
@@ -67,6 +68,17 @@
       <div class="actions">
         <button type="button" class="ghost" data-close>Cancel</button>
         <button type="submit">Import assignments</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="priority-dialog">
+    <form id="priority-form">
+      <h2>Set Course Priorities</h2>
+      <p>We found these courses! Rank how difficult or important they are (1 = Low, 5 = High) so we can prioritize your assignments.</p>
+      <ul id="onboarding-course-list" class="course-list-onboarding"></ul>
+      <div class="actions">
+        <button type="submit">Finish Setup</button>
       </div>
     </form>
   </dialog>
