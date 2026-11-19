@@ -5,7 +5,7 @@
 // The link looks like https://<school>.instructure.com/feeds/calendars/user_XXXX.ics
 // Anyone with that link can read the calendar, so treat it like a password.
 import ICAL from 'ical.js';
-import db from '../database/db.js';
+import db from '../../database/db.js';
 
 const MAX_FEED_BYTES = 5 * 1024 * 1024;
 const PAST_DAYS = 30;     // how far back recurring events are expanded

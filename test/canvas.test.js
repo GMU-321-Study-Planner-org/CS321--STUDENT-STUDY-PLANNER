@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 
 process.env.PLANNER_DB = ':memory:';
 const { default: db } = await import('../database/db.js');
-const { parseFeed, saveFeed, getEventsBetween } = await import('../backend/canvas.js');
+const { parseFeed, saveFeed, getEventsBetween } = await import('../backend/server/canvas.js');
 
 const ics = readFileSync(new URL('./sample-canvas.ics', import.meta.url), 'utf8');
 const NOW = new Date('2026-11-09T12:00:00Z');

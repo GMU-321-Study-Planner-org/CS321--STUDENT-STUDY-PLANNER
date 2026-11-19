@@ -2,14 +2,14 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../database/db.js';
-import { syncFeed, getEventsBetween, getLastSync } from './canvas.js';
+import { syncFeed, getEventsBetween, getLastSync } from './server/canvas.js';
 import { demoFeed } from './demo-feed.js';
-import { rankAssignments } from './priority.js';
+import { rankAssignments } from './server/priority.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(here, '..', 'frontend')));
+app.use(express.static(path.join(here, 'public')));
 
 // Demo mode: serves a fake Canvas feed with dates around today, so the app can be
 // shown without a real Canvas account. Link http://localhost:3000/demo/canvas.ics
