@@ -276,3 +276,57 @@ wireForm('#session-form', '/sessions',
   'Study session added.');
 
 load().catch((err) => say(err.message, true));
+
+
+/* ---------- logout ---------- */
+
+document.querySelector('#logout-btn').addEventListener('click', async () => {
+  const button = document.querySelector('#logout-btn');
+  button.disabled = true;
+  button.textContent = 'Logging out...';
+
+  try {
+    await api('/auth/logout', { method: 'POST' });
+    window.location.replace('/login.html');
+  } catch (error) {
+    say(error.message, true);
+    button.disabled = false;
+    button.textContent = 'Log Out';
+  }
+});
+
+/* ---------- clear Canvas ---------- */
+
+function updateClearButton() {
+  document.querySelector('#clear-btn').hidden = !state.linked;
+}
+
+const originalRender = render;
+
+render = function () {
+  originalRender();
+  updateClearButton();
+};
+
+document.querySelector('#clear-btn').addEventListener('click', async () => {
+  const confirmed = window.confirm(
+    'Remove all imported Canvas assignments and calendar events? ' +
+    'Your manually added tasks will be kept.'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const result = await api('/calendar', { method: 'DELETE' });
+
+    await load();
+
+    say(
+      `Cleared ${result.assignments} assignments and ` +
+      `${result.events} calendar events.`
+    );
+  } catch (error) {
+    say(error.message, true);
+  }
+});
+
