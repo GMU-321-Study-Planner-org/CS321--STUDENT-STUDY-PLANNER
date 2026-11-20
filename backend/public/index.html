@@ -1,23 +1,30 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plan of Study</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <header class="top">
     <h1>Plan of Study</h1>
+
     <div class="top-actions">
       <p id="status" role="status"></p>
       <button id="sync-btn" class="ghost" hidden>Sync Canvas</button>
       <button id="clear-btn" class="ghost" hidden>Clear Canvas</button>
       <button id="link-btn">Link Canvas calendar</button>
+      <button id="logout-btn" class="ghost" type="button">Log Out</button>
     </div>
+
   </header>
 
   <main>
@@ -51,7 +58,9 @@
           <button id="next-week" class="ghost" aria-label="Next week">Next</button>
         </div>
       </div>
-      <div class="week-scroll"><div id="week-grid" class="week-grid"></div></div>
+      <div class="week-scroll">
+        <div id="week-grid" class="week-grid"></div>
+      </div>
     </section>
   </main>
 
@@ -60,7 +69,8 @@
   <dialog id="link-dialog">
     <form id="link-form">
       <h2>Link your Canvas calendar</h2>
-      <p>In Canvas, open Calendar, choose Calendar Feed, and paste the link here. Keep it private: anyone with the link can read your calendar.</p>
+      <p>In Canvas, open Calendar, choose Calendar Feed, and paste the link here. Keep it private: anyone with the link
+        can read your calendar.</p>
       <label>Calendar feed link
         <input name="url" type="url" required placeholder="https://canvas.example.edu/feeds/calendars/user_….ics">
       </label>
@@ -75,7 +85,8 @@
   <dialog id="priority-dialog">
     <form id="priority-form">
       <h2>Set Course Priorities</h2>
-      <p>We found these courses! Rank how difficult or important they are (1 = Low, 5 = High) so we can prioritize your assignments.</p>
+      <p>We found these courses! Rank how difficult or important they are (1 = Low, 5 = High) so we can prioritize your
+        assignments.</p>
       <ul id="onboarding-course-list" class="course-list-onboarding"></ul>
       <div class="actions">
         <button type="submit">Finish Setup</button>
@@ -103,7 +114,8 @@
       <label>Course <input name="course" list="course-codes" required></label>
       <label>Topic <input name="topic" placeholder="Chapter 4 practice problems"></label>
       <label>Starts <input name="start" type="datetime-local" required></label>
-      <label>Length in minutes <input name="minutes" type="number" min="5" max="600" step="5" value="45" required></label>
+      <label>Length in minutes <input name="minutes" type="number" min="5" max="600" step="5" value="45"
+          required></label>
       <p class="error" role="alert" hidden></p>
       <div class="actions">
         <button type="button" class="ghost" data-close>Cancel</button>
@@ -114,4 +126,5 @@
 
   <script src="app.js" defer></script>
 </body>
+
 </html>

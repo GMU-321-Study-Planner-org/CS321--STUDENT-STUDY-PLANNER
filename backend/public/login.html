@@ -1,0 +1,128 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Sign In | Plan of Study</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="login.css">
+  <script src="login.js" defer></script>
+</head>
+
+<body class="auth-page">
+
+  <main class="auth-layout">
+
+    <section class="auth-brand">
+      <div class="brand-content">
+        <div class="brand-logo">
+          <span class="brand-icon">✦</span>
+          <span>Plan of Study</span>
+        </div>
+
+        <div class="brand-message">
+          <span class="eyebrow">YOUR STUDENT WORKSPACE</span>
+
+          <h1>A better way to stay ahead.</h1>
+
+          <p>
+            Keep your courses, assignments, deadlines,
+            and study sessions organized in one place.
+          </p>
+        </div>
+
+        <div class="brand-footer">
+          Plan smarter. Study better.
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-content">
+
+      <div class="auth-card">
+        <div class="auth-heading">
+          <h2 id="form-title">Welcome back</h2>
+          <p id="form-subtitle">
+            Enter your details to sign in to your account.
+          </p>
+        </div>
+
+        <form id="auth-form">
+
+          <div class="form-group" id="name-group" hidden>
+            <label for="name">Full name</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              placeholder="Your full name"
+              autocomplete="name"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email address</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="student@gmu.edu"
+              autocomplete="email"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              minlength="8"
+              required
+            >
+          </div>
+
+          <p id="auth-error" class="auth-error"
+             role="alert" hidden></p>
+
+          <button type="submit" class="auth-submit"
+                  id="submit-btn">
+            Sign in
+          </button>
+
+        </form>
+
+        <div class="auth-switch">
+          <span id="switch-message">
+            Don't have an account?
+          </span>
+
+          <button type="button" id="switch-mode"
+                  class="text-button">
+            Create an account
+          </button>
+        </div>
+
+      </div>
+
+      <p class="auth-bottom">
+        Your space to focus, organize, and succeed.
+      </p>
+
+    </section>
+
+  </main>
+
+</body>
+</html>

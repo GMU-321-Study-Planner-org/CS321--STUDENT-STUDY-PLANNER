@@ -82,8 +82,119 @@ const migrations = [
     removed     INTEGER,
     error       TEXT
   );
+
+  `,
+
+  // v2: User accounts and login sessions.
+  `
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id)
+      ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sessions_user
+    ON user_sessions(user_id);
+
+  
+  CREATE INDEX IF NOT EXISTS idx_sessions_expiry
+    ON user_sessions(expires_at);
+  `,
+
+  // v3: Separate planner data for each student.
+  `
+  CREATE TABLE user_courses (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    code TEXT NOT NULL,
+    name TEXT,
+    priority INTEGER NOT NULL DEFAULT 3
+      CHECK (priority BETWEEN 1 AND 5),
+    UNIQUE(user_id, code)
+  );
+
+  CREATE TABLE user_assignments (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    uid TEXT,
+    course_id INTEGER NOT NULL REFERENCES user_courses(id),
+    title TEXT NOT NULL,
+    due_at TEXT NOT NULL,
+    url TEXT,
+    notes TEXT,
+    completed INTEGER NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'manual',
+    synced_at TEXT,
+    UNIQUE(user_id, uid)
+  );
+
+  CREATE INDEX idx_user_assignments_due
+    ON user_assignments(user_id, due_at);
+
+  CREATE TABLE user_study_sessions (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    course_id INTEGER NOT NULL REFERENCES user_courses(id),
+    starts_at TEXT NOT NULL,
+    minutes INTEGER NOT NULL,
+    topic TEXT
+  );
+
+  CREATE TABLE user_calendar_events (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    uid TEXT NOT NULL,
+    course_id INTEGER REFERENCES user_courses(id),
+    title TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    ends_at TEXT NOT NULL,
+    all_day INTEGER NOT NULL DEFAULT 0,
+    location TEXT,
+    url TEXT,
+    synced_at TEXT NOT NULL,
+    UNIQUE(user_id, uid)
+  );
+
+  CREATE INDEX idx_user_calendar_events_start
+    ON user_calendar_events(user_id, starts_at);
+
+  CREATE TABLE user_settings (
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY(user_id, key)
+  );
+
+  CREATE TABLE user_sync_runs (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    status TEXT NOT NULL DEFAULT 'running'
+      CHECK (status IN ('running', 'ok', 'error')),
+    assignments INTEGER,
+    events INTEGER,
+    removed INTEGER,
+    error TEXT
+  );
+
+  CREATE INDEX idx_user_sync_runs
+    ON user_sync_runs(user_id, id);
   `,
 ];
+
+
 
 const current = db.pragma('user_version', { simple: true });
 db.transaction(() => {

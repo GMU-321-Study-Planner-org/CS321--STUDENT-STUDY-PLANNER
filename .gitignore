@@ -1,0 +1,22 @@
+# Installed dependencies
+node_modules/
+
+# Local SQLite databases and backups
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Operating system files
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

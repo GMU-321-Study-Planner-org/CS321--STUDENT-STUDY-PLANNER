@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'node:path';
+import { setupAuth, requireAuth, getCurrentUser } from './auth.js';
 import { fileURLToPath } from 'node:url';
 import db from '../database/db.js';
 import { syncFeed, getEventsBetween, getLastSync } from './server/canvas.js';
@@ -8,8 +9,35 @@ import { rankAssignments } from './server/priority.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
 app.use(express.json());
-app.use(express.static(path.join(here, 'public')));
+
+setupAuth(app, db);
+
+// Require authentication for planner API requests.
+app.use('/api', requireAuth(db));
+
+const publicDir = path.join(here, 'public');
+
+app.get('/', (req, res) => {
+  if (!getCurrentUser(db, req)) {
+    return res.redirect('/login.html');
+  }
+
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+app.get('/index.html', (req, res) => {
+  if (!getCurrentUser(db, req)) {
+    return res.redirect('/login.html');
+  }
+
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+app.use(express.static(publicDir, {
+  index: false
+}));
 
 // Demo mode: serves a fake Canvas feed with dates around today, so the app can be
 // shown without a real Canvas account. Link http://localhost:3000/demo/canvas.ics
