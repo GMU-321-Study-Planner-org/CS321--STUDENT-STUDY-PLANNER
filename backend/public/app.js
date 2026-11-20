@@ -19,6 +19,11 @@ async function api(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  // Session expired or signed out in another tab: go back to the login page.
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    window.location.replace('/login.html');
+    throw new Error(data.error || 'Please sign in to continue.');
+  }
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }

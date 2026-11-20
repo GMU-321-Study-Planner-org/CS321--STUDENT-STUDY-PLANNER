@@ -192,6 +192,15 @@ const migrations = [
   CREATE INDEX idx_user_sync_runs
     ON user_sync_runs(user_id, id);
   `,
+
+  // v4: Indexes for the per-user queries the API runs on every dashboard load.
+  `
+  CREATE INDEX IF NOT EXISTS idx_user_study_sessions
+    ON user_study_sessions(user_id, starts_at);
+
+  CREATE INDEX IF NOT EXISTS idx_user_assignments_source
+    ON user_assignments(user_id, source);
+  `,
 ];
 
 

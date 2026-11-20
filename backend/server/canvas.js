@@ -1,5 +1,7 @@
 // backend/canvas.js
 // Imports a Canvas calendar feed (.ics) into the planner database using ical.js.
+// Every store/read function takes a userId and only touches that user's rows
+// (the user_* tables), so students never see or overwrite each other's data.
 //
 // Where to get the feed: Canvas > Calendar > "Calendar Feed" (bottom right).
 // The link looks like https://<school>.instructure.com/feeds/calendars/user_XXXX.ics
@@ -135,21 +137,21 @@ export function parseFeed(icsText, now = new Date()) {
 /* ------------------------------------------------------------------ store */
 
 const stmts = {
-  addCourse: db.prepare('INSERT INTO courses (code) VALUES (?) ON CONFLICT(code) DO NOTHING'),
-  findCourse: db.prepare('SELECT id FROM courses WHERE code = ?'),
+  addCourse: db.prepare('INSERT INTO user_courses (user_id, code) VALUES (?, ?) ON CONFLICT(user_id, code) DO NOTHING'),
+  findCourse: db.prepare('SELECT id FROM user_courses WHERE user_id = ? AND code = ?'),
 
   // Re-syncing updates titles and due dates but leaves the student's completed checkmark alone.
   upsertAssignment: db.prepare(`
-    INSERT INTO assignments (uid, course_id, title, due_at, url, notes, source, synced_at)
-    VALUES (@uid, @courseId, @title, @dueAt, @url, @notes, 'canvas', @syncedAt)
-    ON CONFLICT(uid) DO UPDATE SET
+    INSERT INTO user_assignments (user_id, uid, course_id, title, due_at, url, notes, source, synced_at)
+    VALUES (@userId, @uid, @courseId, @title, @dueAt, @url, @notes, 'canvas', @syncedAt)
+    ON CONFLICT(user_id, uid) DO UPDATE SET
       course_id = excluded.course_id, title = excluded.title, due_at = excluded.due_at,
       url = excluded.url, notes = excluded.notes, synced_at = excluded.synced_at
   `),
   upsertEvent: db.prepare(`
-    INSERT INTO calendar_events (uid, course_id, title, starts_at, ends_at, all_day, location, url, synced_at)
-    VALUES (@uid, @courseId, @title, @startsAt, @endsAt, @allDay, @location, @url, @syncedAt)
-    ON CONFLICT(uid) DO UPDATE SET
+    INSERT INTO user_calendar_events (user_id, uid, course_id, title, starts_at, ends_at, all_day, location, url, synced_at)
+    VALUES (@userId, @uid, @courseId, @title, @startsAt, @endsAt, @allDay, @location, @url, @syncedAt)
+    ON CONFLICT(user_id, uid) DO UPDATE SET
       course_id = excluded.course_id, title = excluded.title, starts_at = excluded.starts_at,
       ends_at = excluded.ends_at, all_day = excluded.all_day, location = excluded.location,
       url = excluded.url, synced_at = excluded.synced_at
@@ -158,57 +160,57 @@ const stmts = {
   // Anything from Canvas that this sync did not see has been removed in Canvas.
   // Completed assignments are kept so the student's history doesn't vanish.
   pruneAssignments: db.prepare(`
-    DELETE FROM assignments
-    WHERE source = 'canvas' AND completed = 0 AND (synced_at IS NULL OR synced_at <> ?)
+    DELETE FROM user_assignments
+    WHERE user_id = ? AND source = 'canvas' AND completed = 0 AND (synced_at IS NULL OR synced_at <> ?)
   `),
-  pruneEvents: db.prepare('DELETE FROM calendar_events WHERE synced_at <> ?'),
+  pruneEvents: db.prepare('DELETE FROM user_calendar_events WHERE user_id = ? AND synced_at <> ?'),
 
-  startRun: db.prepare("INSERT INTO sync_runs (started_at) VALUES (?)"),
+  startRun: db.prepare('INSERT INTO user_sync_runs (user_id, started_at) VALUES (?, ?)'),
   finishRun: db.prepare(`
-    UPDATE sync_runs SET finished_at = @finishedAt, status = @status,
+    UPDATE user_sync_runs SET finished_at = @finishedAt, status = @status,
       assignments = @assignments, events = @events, removed = @removed, error = @error
-    WHERE id = @id
+    WHERE id = @id AND user_id = @userId
   `),
 };
 
-function courseId(code) {
+function courseId(userId, code) {
   if (!code) return null;
-  stmts.addCourse.run(code);
-  return stmts.findCourse.get(code).id;
+  stmts.addCourse.run(userId, code);
+  return stmts.findCourse.get(userId, code).id;
 }
 
-// Writes parsed feed data in one transaction: either the whole sync lands or none of it does.
-export function saveFeed({ assignments, events }, syncedAt = new Date().toISOString()) {
+// Writes parsed feed data for one user in one transaction: either the whole sync lands or none of it does.
+export function saveFeed(userId, { assignments, events }, syncedAt = new Date().toISOString()) {
   return db.transaction(() => {
     for (const a of assignments) {
-      stmts.upsertAssignment.run({ ...a, courseId: courseId(a.courseCode ?? 'General'), syncedAt });
+      stmts.upsertAssignment.run({ ...a, userId, courseId: courseId(userId, a.courseCode ?? 'General'), syncedAt });
     }
     for (const e of events) {
-      stmts.upsertEvent.run({ ...e, courseId: courseId(e.courseCode), syncedAt });
+      stmts.upsertEvent.run({ ...e, userId, courseId: courseId(userId, e.courseCode), syncedAt });
     }
 
     // An empty feed is more likely a Canvas hiccup than a student with zero work.
     // Skip pruning so one bad response can't wipe the planner.
     let removed = 0;
     if (assignments.length + events.length > 0) {
-      removed += stmts.pruneAssignments.run(syncedAt).changes;
-      removed += stmts.pruneEvents.run(syncedAt).changes;
+      removed += stmts.pruneAssignments.run(userId, syncedAt).changes;
+      removed += stmts.pruneEvents.run(userId, syncedAt).changes;
     }
     return { assignments: assignments.length, events: events.length, removed };
   })();
 }
 
-// Fetch, parse, save, and log the attempt in sync_runs.
-export async function syncFeed(url) {
+// Fetch, parse, save, and log the attempt in user_sync_runs.
+export async function syncFeed(userId, url) {
   const startedAt = new Date().toISOString();
-  const runId = stmts.startRun.run(startedAt).lastInsertRowid;
+  const runId = stmts.startRun.run(userId, startedAt).lastInsertRowid;
   try {
-    const counts = saveFeed(parseFeed(await fetchFeed(url)), startedAt);
-    stmts.finishRun.run({ id: runId, finishedAt: new Date().toISOString(), status: 'ok', error: null, ...counts });
+    const counts = saveFeed(userId, parseFeed(await fetchFeed(url)), startedAt);
+    stmts.finishRun.run({ id: runId, userId, finishedAt: new Date().toISOString(), status: 'ok', error: null, ...counts });
     return { imported: counts.assignments + counts.events, ...counts };
   } catch (err) {
     stmts.finishRun.run({
-      id: runId, finishedAt: new Date().toISOString(), status: 'error',
+      id: runId, userId, finishedAt: new Date().toISOString(), status: 'error',
       assignments: null, events: null, removed: null, error: err.message,
     });
     throw err;
@@ -217,14 +219,24 @@ export async function syncFeed(url) {
 
 /* ------------------------------------------------------------------ read */
 
-// Calendar events for the week view, e.g. getEventsBetween(mondayIso, nextMondayIso).
-export const getEventsBetween = (fromIso, toIso) =>
+// One user's calendar events for the week view, e.g. getEventsBetween(userId, mondayIso, nextMondayIso).
+export const getEventsBetween = (userId, fromIso, toIso) =>
   db.prepare(`
-    SELECT e.*, c.code AS course_code FROM calendar_events e
-    LEFT JOIN courses c ON c.id = e.course_id
-    WHERE e.starts_at < ? AND e.ends_at >= ?
+    SELECT e.*, c.code AS course_code FROM user_calendar_events e
+    LEFT JOIN user_courses c ON c.id = e.course_id
+    WHERE e.user_id = ? AND e.starts_at < ? AND e.ends_at >= ?
     ORDER BY e.starts_at
-  `).all(toIso, fromIso);
+  `).all(userId, toIso, fromIso);
 
-export const getLastSync = () =>
-  db.prepare('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1').get() ?? null;
+export const getLastSync = (userId) =>
+  db.prepare('SELECT * FROM user_sync_runs WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(userId) ?? null;
+
+// Remove one user's imported Canvas data (their manual tasks stay) and forget their feed link.
+export function clearCanvasData(userId) {
+  return db.transaction(() => {
+    const assignments = db.prepare("DELETE FROM user_assignments WHERE user_id = ? AND source = 'canvas'").run(userId).changes;
+    const events = db.prepare('DELETE FROM user_calendar_events WHERE user_id = ?').run(userId).changes;
+    db.prepare("DELETE FROM user_settings WHERE user_id = ? AND key = 'feed_url'").run(userId);
+    return { assignments, events };
+  })();
+}
