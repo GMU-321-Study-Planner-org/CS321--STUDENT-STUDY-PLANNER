@@ -105,7 +105,34 @@
           <section class="app-panel week" aria-labelledby="week-h"><div class="section-head"><h2 id="week-h">This week</h2><div class="row"><button id="prev-week" class="ghost" aria-label="Previous month">← Previous</button><span id="week-label"></span><button id="next-week" class="ghost" aria-label="Next month">Next →</button></div></div><div class="week-scroll"><div id="week-grid" class="week-grid"></div></div><div class="row calendar-footer"><button type="button" class="ghost" id="calendar-add-session">+ Plan study session</button><button type="button" class="ghost" id="calendar-add-task">+ Add task</button></div></section>
         </section>
 
-        <section class="app-page" data-page="analytics" hidden><div class="page-intro"><h2>Study Analytics</h2><p>Insights into how you're progressing throughout the semester.</p></div><div class="app-panel coming-soon"><span>▥</span><h2>Study Analytics is coming next</h2><p>We'll add study hours, assignment completion trends, and weekly progress here.</p></div></section>
+        <!-- study-analytics-v8: user-specific analytics from existing /api/state -->
+        <section class="app-page" data-page="analytics" hidden>
+          <div class="page-intro"><h2>Study Analytics</h2><p>Understand your assignment workload and your scheduled study time.</p></div>
+          <div class="analytics-summary">
+            <article class="app-panel analytics-stat"><span class="analytics-stat-label">Tracked assignments</span><strong id="analytics-total">0</strong><small>Across all courses</small></article>
+            <article class="app-panel analytics-stat"><span class="analytics-stat-label">Completed assignments</span><strong id="analytics-done">0</strong><small id="analytics-completion-label">0% of tracked assignments</small></article>
+            <article class="app-panel analytics-stat"><span class="analytics-stat-label">Overdue assignments</span><strong id="analytics-overdue">0</strong><small>Incomplete and past due</small></article>
+            <article class="app-panel analytics-stat"><span class="analytics-stat-label">Scheduled this week</span><strong id="analytics-week-hours">0 h</strong><small>Planned hours, not time tracked</small></article>
+          </div>
+          <div class="analytics-grid">
+            <section class="app-panel analytics-panel">
+              <div class="panel-heading"><div><p class="eyebrow">THIS WEEK</p><h2>Planned study hours</h2></div><span class="analytics-muted" id="analytics-week-range"></span></div>
+              <div id="analytics-week-chart" class="analytics-week-chart" role="img" aria-label="Scheduled study hours by weekday"></div>
+              <div class="analytics-goal-row"><div><strong>Weekly study goal</strong><small id="analytics-goal-caption">Set a weekly goal in Academic Preferences</small></div><strong id="analytics-goal-progress">0 / 10 h</strong></div>
+              <div class="analytics-progress-track" role="progressbar" aria-label="Scheduled hours toward weekly goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="analytics-goal-bar"><div id="analytics-goal-fill"></div></div>
+              <p class="analytics-note">These hours are scheduled sessions, not verified time spent studying. Sessions that cross week boundaries are counted by the portion inside this week.</p>
+            </section>
+            <section class="app-panel analytics-panel">
+              <div class="panel-heading"><div><p class="eyebrow">YOUR WORKLOAD</p><h2>Assignment breakdown</h2></div></div>
+              <div class="analytics-donut-wrap">
+                <div class="analytics-donut" id="analytics-donut" role="img" aria-label="Assignment completion chart"><div><strong id="analytics-rate">0%</strong><small>Completed</small></div></div>
+                <div class="analytics-legend"><div><span class="analytics-dot" style="--dot:#146846"></span> Completed <strong id="analytics-legend-done">0</strong></div><div><span class="analytics-dot" style="--dot:#a9bcb0"></span> Remaining <strong id="analytics-legend-active">0</strong></div><div><span class="analytics-dot" style="--dot:#c24c3e"></span> Overdue <strong id="analytics-legend-late">0</strong></div></div>
+              </div>
+              <p class="analytics-note">Completion rate reflects the current status of your assignments. Completion history by day isn't available yet.</p>
+            </section>
+          </div>
+          <section class="app-panel analytics-panel"><div class="panel-heading"><div><p class="eyebrow">BY COURSE</p><h2>Course progress</h2></div></div><div id="analytics-courses" class="analytics-course-list"></div></section>
+        </section>
         <section class="app-page" data-page="goals" hidden><div class="page-intro"><h2>Goals</h2><p>Create a routine that fits your courses and schedule.</p></div><div class="app-panel coming-soon"><span>◎</span><h2>Your goals, all in one place</h2><p>Weekly targets and progress milestones will be built in the next phase.</p></div></section>
         <!-- profile-settings-v2 -->
         <section class="app-page" data-page="settings" hidden>

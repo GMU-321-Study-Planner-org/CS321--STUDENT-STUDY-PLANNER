@@ -749,3 +749,113 @@ document.querySelector('#assignment-reset').addEventListener('click',()=>{
 const priorAssignmentsRender=render;
 render=function(){priorAssignmentsRender();applyAssignmentFilters();};
 applyAssignmentFilters();
+
+
+/* study-analytics-v8: real account data, no extra backend endpoint. */
+function renderStudyAnalytics() {
+  const all = [...state.queue, ...state.done];
+  const done = all.filter(item => Boolean(item.completed));
+  const active = all.filter(item => !item.completed);
+  const now = new Date();
+  const overdue = active.filter(item => {
+    const due = new Date(item.due_at);
+    return !Number.isNaN(due.getTime()) && due < now;
+  });
+  const total = all.length;
+  const rate = total ? Math.round(done.length * 100 / total) : 0;
+  const set = (id, value) => { document.querySelector(id).textContent = String(value); };
+  set('#analytics-total', total);
+  set('#analytics-done', done.length);
+  set('#analytics-overdue', overdue.length);
+  set('#analytics-completion-label', `${rate}% of tracked assignments`);
+  set('#analytics-rate', `${rate}%`);
+  set('#analytics-legend-done', done.length);
+  set('#analytics-legend-active', active.length);
+  set('#analytics-legend-late', overdue.length);
+  const donut = document.querySelector('#analytics-donut');
+  donut.style.background = total
+    ? `conic-gradient(#146846 0% ${rate}%, #d6e3d9 ${rate}% 100%)`
+    : '#e2eae5';
+  donut.setAttribute('aria-label', total
+    ? `${done.length} of ${total} assignments completed (${rate} percent)`
+    : 'No assignments to display');
+
+  // Monday 00:00 local time through following Monday 00:00 local time.
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
+  const buckets = Array(7).fill(0);
+  for (const session of state.sessions) {
+    const start = new Date(session.starts_at);
+    const minutes = Number(session.minutes);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(minutes) || minutes <= 0) continue;
+    const end = new Date(start.getTime() + minutes * 60000);
+    const overlapStart = Math.max(start.getTime(), weekStart.getTime());
+    const overlapEnd = Math.min(end.getTime(), weekEnd.getTime());
+    if (overlapEnd <= overlapStart) continue;
+    // Split across local midnights so daily bars remain correct.
+    let cursor = overlapStart;
+    while (cursor < overlapEnd) {
+      const dt = new Date(cursor);
+      const nextDay = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()+1).getTime();
+      const finish = Math.min(overlapEnd, nextDay);
+      const idx = (dt.getDay()+6)%7;
+      buckets[idx] += (finish-cursor)/3600000;
+      cursor=finish;
+    }
+  }
+  const weeklyHours = buckets.reduce((sum,n)=>sum+n,0);
+  set('#analytics-week-hours', `${Number(weeklyHours.toFixed(1))} h`);
+  const rangeFmt = new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric'});
+  set('#analytics-week-range', `${rangeFmt.format(weekStart)} – ${rangeFmt.format(new Date(weekEnd.getTime()-1))}`);
+  const maxHours = Math.max(1, ...buckets);
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const chart = document.querySelector('#analytics-week-chart');
+  chart.replaceChildren();
+  buckets.forEach((hours,i) => {
+    const col = document.createElement('div'); col.className='analytics-day';
+    const value = document.createElement('span'); value.className='analytics-day-value';
+    value.textContent=hours ? `${Number(hours.toFixed(1))}h` : '0h';
+    const track=document.createElement('div'); track.className='analytics-bar-track';
+    const bar=document.createElement('div'); bar.className='analytics-bar';
+    bar.style.height=`${Math.max(0,Math.min(100,hours/maxHours*100))}%`;
+    bar.title=`${days[i]}: ${Number(hours.toFixed(2))} scheduled hours`;
+    track.append(bar);
+    const label=document.createElement('span'); label.className='analytics-day-name';label.textContent=days[i];
+    col.append(value,track,label); chart.append(col);
+  });
+  chart.setAttribute('aria-label', days.map((d,i)=>`${d}: ${Number(buckets[i].toFixed(1))} hours scheduled`).join(', '));
+  const goalInput = document.querySelector('#profile-weekly-hours');
+  const preferred = Number(goalInput?.value || 10);
+  const goal = Number.isFinite(preferred) && preferred > 0 ? preferred : 10;
+  const pct = Math.min(100,Math.round(weeklyHours/goal*100));
+  set('#analytics-goal-progress', `${Number(weeklyHours.toFixed(1))} / ${goal} h`);
+  set('#analytics-goal-caption', `${pct}% of your weekly goal scheduled`);
+  document.querySelector('#analytics-goal-fill').style.width=`${pct}%`;
+  document.querySelector('#analytics-goal-bar').setAttribute('aria-valuenow',String(pct));
+
+  const list=document.querySelector('#analytics-courses');
+  list.replaceChildren();
+  const data = state.courses.map(course=>{
+    const assignments=all.filter(a=>String(a.course_id)===String(course.id));
+    return {code:course.code, total:assignments.length,done:assignments.filter(a=>Boolean(a.completed)).length};
+  }).filter(entry=>entry.total>0).sort((a,b)=>a.code.localeCompare(b.code));
+  if (!data.length) {
+    const empty=document.createElement('p');empty.className='analytics-note';
+    empty.textContent='No assignments yet. Add an assignment or import your Canvas calendar to see course progress.';
+    list.append(empty);
+  }
+  for (const course of data) {
+    const percent=Math.round(course.done/course.total*100);
+    const row=document.createElement('div');row.className='analytics-course-row';
+    const heading=document.createElement('div');heading.className='analytics-course-heading';
+    const name=document.createElement('strong');name.textContent=course.code;
+    const count=document.createElement('span');count.textContent=`${course.done} / ${course.total} completed · ${percent}%`;
+    heading.append(name,count);
+    const track=document.createElement('div');track.className='analytics-progress-track';
+    const fill=document.createElement('div'); fill.style.width=`${percent}%`;track.append(fill);
+    row.append(heading,track);list.append(row);
+  }
+}
+const renderBeforeAnalyticsV8=render;
+render=function(){renderBeforeAnalyticsV8();renderStudyAnalytics();};
+renderStudyAnalytics();
