@@ -14,55 +14,136 @@
 </head>
 
 <body>
-  <header class="top">
-    <h1>Plan of Study</h1>
-
-    <div class="top-actions">
-      <p id="status" role="status"></p>
-      <button id="sync-btn" class="ghost" hidden>Sync Canvas</button>
-      <button id="clear-btn" class="ghost" hidden>Clear Canvas</button>
-      <button id="link-btn">Link Canvas calendar</button>
-      <button id="logout-btn" class="ghost" type="button">Log Out</button>
-    </div>
-
-  </header>
-
-  <main>
-    <aside class="courses">
-      <h2>Courses</h2>
-      <p class="hint">Set a priority from 1 to 5. Higher priority moves that course's work up your queue.</p>
-      <ul id="course-list"></ul>
+  <!-- dashboard-redesign-v1: Pages keep existing API-connected components. -->
+  <div class="workspace" id="workspace">
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Main navigation">
+      <div class="sidebar-brand"><span class="brand-mark">✦</span><span>Plan of Study<small>STUDENT WORKSPACE</small></span></div>
+      <nav class="sidebar-nav" aria-label="Pages">
+        <button type="button" class="nav-item active" data-nav="dashboard" aria-current="page"><span>▦</span> Dashboard</button>
+        <button type="button" class="nav-item" data-nav="calendar"><span>▣</span> Calendar</button>
+        <button type="button" class="nav-item" data-nav="assignments"><span>☑</span> Assignments</button>
+        <button type="button" class="nav-item" data-nav="courses"><span>▤</span> Courses</button>
+        <div class="nav-separator"></div>
+        <p class="nav-caption">YOUR WORKSPACE</p>
+        <button type="button" class="nav-item" data-nav="analytics"><span>▥</span> Study Analytics</button>
+        <button type="button" class="nav-item" data-nav="goals"><span>◎</span> Goals</button>
+        <button type="button" class="nav-item" data-nav="settings"><span>⚙</span> Settings</button>
+      </nav>
+      <div class="sidebar-bottom"><span class="sidebar-dot"></span> Make every study hour count.</div>
     </aside>
 
-    <section class="queue" aria-labelledby="queue-h">
-      <div class="section-head">
-        <h2 id="queue-h">Up next</h2>
-        <div class="row">
-          <button id="add-task-btn" class="ghost">Add task</button>
-          <button id="add-session-btn" class="ghost">Plan study session</button>
+    <div class="app-content">
+      <header class="app-header">
+        <div class="header-title"><button type="button" id="sidebar-toggle" class="icon-button" aria-label="Toggle sidebar" aria-expanded="false">☰</button>
+          <div><span class="eyebrow">YOUR ACADEMIC WORKSPACE</span><h1 id="page-title">Dashboard</h1></div></div>
+        <div class="top-actions">
+          <p id="status" role="status" aria-live="polite"></p>
+          <button id="sync-btn" class="ghost" hidden>↻ Sync Canvas</button>
+          <button id="clear-btn" class="ghost" hidden>Clear Canvas</button>
+          <button id="link-btn">Link Canvas calendar</button>
+          <div class="profile-wrap">
+            <button id="profile-toggle" class="profile-trigger" type="button" aria-label="Open account menu" aria-haspopup="true" aria-expanded="false"><span id="profile-avatar">U</span></button>
+            <div id="profile-menu" class="profile-menu" hidden>
+              <div class="profile-heading"><div class="profile-avatar-large" id="profile-menu-avatar">U</div><div><strong id="profile-name">Student</strong><small id="profile-email">Account</small></div></div>
+              <div class="profile-menu-divider"></div>
+              <button type="button" data-nav="settings" data-section="account-profile">◉ &nbsp; My profile</button>
+              <button type="button" data-nav="settings" data-section="academic-preferences">▤ &nbsp; Academic preferences</button>
+              <button type="button" data-nav="settings" data-section="appearance-settings">◐ &nbsp; Appearance</button>
+              <button type="button" data-nav="settings" data-section="privacy-settings">♢ &nbsp; Privacy &amp; security</button>
+              <button type="button" data-nav="courses">▤ &nbsp; My courses</button>
+              <button type="button" data-nav="calendar">▣ &nbsp; My calendar</button>
+              <div class="profile-menu-divider"></div>
+              <button type="button" id="logout-btn">↪ &nbsp; Log Out</button>
+            </div>
+          </div>
         </div>
-      </div>
-      <ol id="queue-list"></ol>
-      <section class="completed-section" aria-labelledby="completed-h">
-        <h3 id="completed-h">Completed assignments</h3>
-        <ul id="completed-list"></ul>
-      </section>
-    </section>
+      </header>
 
-    <section class="week" aria-labelledby="week-h">
-      <div class="section-head">
-        <h2 id="week-h">This week</h2>
-        <div class="row">
-          <button id="prev-week" class="ghost" aria-label="Previous week">Previous</button>
-          <span id="week-label"></span>
-          <button id="next-week" class="ghost" aria-label="Next week">Next</button>
-        </div>
-      </div>
-      <div class="week-scroll">
-        <div id="week-grid" class="week-grid"></div>
-      </div>
-    </section>
-  </main>
+      <main class="app-main">
+        <section class="app-page" data-page="dashboard">
+          <div class="welcome-banner"><div><p class="eyebrow">YOUR SPACE TO FOCUS</p><h2 id="welcome-title">Welcome back!</h2><p>Stay organized, prioritize what matters, and keep moving forward.</p></div><span class="banner-art" aria-hidden="true">✦</span></div>
+          <div class="stat-grid">
+            <article class="stat-card"><span class="stat-symbol">▤</span><span class="stat-label">Active courses</span><strong id="stat-courses">0</strong><span class="stat-note">Your semester overview</span></article>
+            <article class="stat-card"><span class="stat-symbol">☑</span><span class="stat-label">Upcoming tasks</span><strong id="stat-upcoming">0</strong><span class="stat-note">Still to complete</span></article>
+            <article class="stat-card"><span class="stat-symbol">✓</span><span class="stat-label">Completed tasks</span><strong id="stat-completed">0</strong><span class="stat-note">Keep up the momentum</span></article>
+            <article class="stat-card"><span class="stat-symbol">◷</span><span class="stat-label">Study sessions</span><strong id="stat-sessions">0</strong><span class="stat-note">Sessions scheduled</span></article>
+            <article class="stat-card"><span class="stat-symbol" aria-hidden="true">!</span><span class="stat-label">Due this week</span><strong id="stat-due-week">0</strong><span class="stat-note">Upcoming deadlines this week</span></article>
+            <article class="stat-card"><span class="stat-symbol" aria-hidden="true">%</span><span class="stat-label">Completion rate</span><strong id="stat-completion">0%</strong><span class="stat-note">Completed of all tracked tasks</span></article>
+          </div>
+          <div class="overview-grid">
+            <section class="app-panel"><div class="panel-heading"><div><p class="eyebrow">STAY ON TRACK</p><h2>Up next</h2></div><button type="button" class="text-action" data-nav="assignments">View all →</button></div><ul class="overview-list" id="dashboard-upcoming"></ul></section>
+            <section class="app-panel"><div class="panel-heading"><div><p class="eyebrow">PLAN YOUR WEEK</p><h2>Study sessions</h2></div><button type="button" class="text-action" data-nav="calendar">View calendar →</button></div><ul class="overview-list" id="dashboard-sessions"></ul><div class="session-empty" id="dashboard-session-empty" hidden><div class="session-empty-icon" aria-hidden="true">◷</div><h3>Make time to focus</h3><p>No upcoming study sessions yet. Add one to start planning your week.</p><button type="button" id="dashboard-add-session">+ Plan a study session</button></div></section>
+          </div>
+        </section>
+
+        <section class="app-page" data-page="courses" hidden>
+          <div class="page-intro"><h2>Your courses</h2><p>Set priorities from 1–5 to control which assignments appear first.</p></div>
+          <div class="app-panel courses"><h2>Course priorities</h2><p class="hint">Higher priority moves a course's work up your queue.</p><ul id="course-list"></ul></div>
+        </section>
+
+        <section class="app-page" data-page="assignments" hidden>
+          <div class="page-intro"><h2>Assignments</h2><p>Manage deadlines, track completed work, and plan your next steps.</p></div>
+          <section class="app-panel queue" aria-labelledby="queue-h">
+            <div class="section-head"><h2 id="queue-h">Up next</h2><div class="row"><button id="add-task-btn" class="ghost">+ Add task</button><button id="add-session-btn" class="ghost">Plan study session</button></div></div>
+            <ol id="queue-list"></ol>
+            <section class="completed-section" aria-labelledby="completed-h"><h3 id="completed-h">Completed assignments</h3><ul id="completed-list"></ul></section>
+          </section>
+        </section>
+
+        <section class="app-page" data-page="calendar" hidden>
+          <div class="page-intro"><h2>Calendar</h2><p>See your upcoming coursework and study sessions at a glance.</p></div>
+          <section class="app-panel week" aria-labelledby="week-h"><div class="section-head"><h2 id="week-h">This week</h2><div class="row"><button id="prev-week" class="ghost" aria-label="Previous month">← Previous</button><span id="week-label"></span><button id="next-week" class="ghost" aria-label="Next month">Next →</button></div></div><div class="week-scroll"><div id="week-grid" class="week-grid"></div></div><div class="row calendar-footer"><button type="button" class="ghost" id="calendar-add-session">+ Plan study session</button><button type="button" class="ghost" id="calendar-add-task">+ Add task</button></div></section>
+        </section>
+
+        <section class="app-page" data-page="analytics" hidden><div class="page-intro"><h2>Study Analytics</h2><p>Insights into how you're progressing throughout the semester.</p></div><div class="app-panel coming-soon"><span>▥</span><h2>Study Analytics is coming next</h2><p>We'll add study hours, assignment completion trends, and weekly progress here.</p></div></section>
+        <section class="app-page" data-page="goals" hidden><div class="page-intro"><h2>Goals</h2><p>Create a routine that fits your courses and schedule.</p></div><div class="app-panel coming-soon"><span>◎</span><h2>Your goals, all in one place</h2><p>Weekly targets and progress milestones will be built in the next phase.</p></div></section>
+        <!-- profile-settings-v2 -->
+        <section class="app-page" data-page="settings" hidden>
+          <div class="page-intro"><h2>Account settings</h2><p>Make this workspace your own.</p></div>
+          <div class="settings-grid">
+            <section class="app-panel settings-card" id="account-profile">
+              <div class="settings-heading"><span class="settings-icon">◉</span><div><h2>My profile</h2><p>Update the name and email used for your account.</p></div></div>
+              <form id="profile-form" class="settings-form">
+                <label for="profile-display-name">Full name</label>
+                <input id="profile-display-name" name="name" type="text" minlength="2" maxlength="100" autocomplete="name" required>
+                <label for="profile-display-email">Email address</label>
+                <input id="profile-display-email" name="email" type="email" maxlength="254" autocomplete="email" required>
+                <p class="form-note">This updates your account details, not your Canvas account.</p>
+                <p id="profile-feedback" class="form-feedback" role="status" aria-live="polite"></p>
+                <button type="submit">Save profile</button>
+              </form>
+            </section>
+            <section class="app-panel settings-card" id="academic-preferences">
+              <div class="settings-heading"><span class="settings-icon">▤</span><div><h2>Academic preferences</h2><p>Set a few goals for your study routine.</p></div></div>
+              <form id="preferences-form" class="settings-form">
+                <label for="profile-university">University (optional)</label>
+                <input id="profile-university" name="university" maxlength="100" type="text" placeholder="e.g., George Mason University">
+                <label for="profile-major">Major (optional)</label>
+                <input id="profile-major" name="major" maxlength="100" type="text" placeholder="e.g., Computer Science">
+                <label for="profile-weekly-hours">Weekly study goal (hours)</label>
+                <input id="profile-weekly-hours" name="weeklyHours" type="number" min="1" max="80" step="1" value="10" required>
+                <label for="profile-session-length">Preferred study session</label>
+                <select id="profile-session-length" name="sessionMinutes">
+                  <option value="25">25 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option>
+                </select>
+                <p class="form-note">These preferences are saved to your account. Automatic scheduling comes in a future update.</p>
+                <p id="preferences-feedback" class="form-feedback" role="status" aria-live="polite"></p>
+                <button type="submit">Save preferences</button>
+              </form>
+            </section>
+            <section class="app-panel settings-card" id="appearance-settings">
+              <div class="settings-heading"><span class="settings-icon">◐</span><div><h2>Appearance</h2><p>More ways to personalize your workspace are coming soon.</p></div></div>
+              <p class="form-note">Dark mode and custom themes are planned for the next phase.</p>
+            </section>
+            <section class="app-panel settings-card" id="privacy-settings">
+              <div class="settings-heading"><span class="settings-icon">♢</span><div><h2>Privacy &amp; security</h2><p>Your planner data belongs to your account.</p></div></div>
+              <p class="form-note">Password changes and account deletion will be added with their own safety checks and tests.</p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
 
   <datalist id="course-codes"></datalist>
 

@@ -102,43 +102,47 @@ function renderCompleted() {
     : '<li class="empty">No completed assignments yet.</li>';
 }
 
+/* monthly-calendar-v4 */
+const expandedCalendarDays = new Set();
 function renderWeek() {
-  const first = startOfDay(new Date());
-  first.setDate(first.getDate() - ((first.getDay() + 6) % 7) + state.weekOffset * 7); // Monday
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(first);
-    d.setDate(first.getDate() + i);
-    return d;
-  });
-
-  const items = [
-    ...[...state.queue, ...state.done].map((a) => ({
-      kind: 'task', when: new Date(a.due_at), label: a.title, tag: a.course_code, priority: a.course_priority, done: !!a.completed,
-    })),
-    ...state.sessions.map((s) => ({
-      kind: 'session', when: new Date(s.starts_at), label: s.topic || 'Study session', tag: `${s.course_code}, ${s.minutes} min`, priority: 0, done: false,
-    })),
-  ].sort((a, b) => a.when - b.when);
-
-  const today = new Date().toDateString();
-  $('#week-label').textContent = `${shortDate.format(days[0])} to ${shortDate.format(days[6])}`;
-  $('#week-grid').innerHTML = days
-    .map((d) => {
-      const key = d.toDateString();
-      const chips = items
-        .filter((i) => i.when.toDateString() === key)
-        .map(
-          (i) => `<li class="chip ${i.kind}" data-p="${tier(i.priority)}" data-done="${i.done}">
-            <time>${timeFmt.format(i.when)}</time><span>${esc(i.label)}</span><small>${esc(i.tag)}</small>
-          </li>`
-        )
-        .join('');
-      return `<div class="day" ${key === today ? 'aria-current="date"' : ''}>
-        <h3>${weekdayFmt.format(d)} <span>${d.getDate()}</span></h3><ul>${chips}</ul>
+  // Existing Prev/Next handlers change weekOffset; now it means month offset.
+  const now=new Date();
+  const first=new Date(now.getFullYear(),now.getMonth()+state.weekOffset,1);
+  const year=first.getFullYear(), month=first.getMonth();
+  const offset=(first.getDay()+6)%7;
+  const last=new Date(year,month+1,0);
+  const length=Math.ceil((offset+last.getDate())/7)*7;
+  const days=Array.from({length},(_,i)=>new Date(year,month,1-offset+i));
+  const key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const items=[
+    ...[...state.queue,...state.done].map(a=>({kind:'task',when:new Date(a.due_at),label:a.title,tag:a.course_code,done:!!a.completed})),
+    ...state.sessions.map(s=>({kind:'session',when:new Date(s.starts_at),label:s.topic||'Study session',tag:s.course_code||'Study',done:false}))
+  ].filter(x=>!Number.isNaN(x.when.getTime())).sort((a,b)=>a.when-b.when);
+  $('#week-h').textContent='Monthly calendar';
+  $('#week-label').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(first);
+  $('#week-grid').innerHTML=`<div class="month-weekdays" aria-hidden="true">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div>${d}</div>`).join('')}</div>
+    <div class="month-cells">${days.map(d=>{
+      const day=key(d), todays=items.filter(x=>key(x.when)===day), expanded=expandedCalendarDays.has(day);
+      const visible=expanded?todays:todays.slice(0,3);
+      return `<div class="month-day ${d.getMonth()===month?'':'month-outside'} ${day===key(now)?'month-today':''}">
+        <div class="month-date"><span>${d.getDate()}</span>${day===key(now)?'<small>Today</small>':''}</div>
+        <ul class="month-day-items">${visible.map(x=>{
+          const overdue=x.kind==='task'&&!x.done&&x.when<now;
+          return `<li class="month-item ${x.kind} ${overdue?'month-overdue':''} ${x.done?'month-done':''}">
+            <span class="month-item-title">${esc(x.label)}</span><span class="month-item-meta">${esc(timeFmt.format(x.when))} · ${esc(x.tag||'')}</span></li>`;
+        }).join('')}</ul>
+        ${todays.length>3?`<button type="button" class="month-more" data-calendar-day="${day}" aria-expanded="${expanded}">${expanded?'Show less':`+${todays.length-3} more`}</button>`:''}
       </div>`;
-    })
-    .join('');
+    }).join('')}</div>`;
 }
+$('#week-grid').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-calendar-day]');
+  if(!btn)return;
+  const day=btn.dataset.calendarDay;
+  if(expandedCalendarDays.has(day))expandedCalendarDays.delete(day);
+  else expandedCalendarDays.add(day);
+  renderWeek();
+});
 
 function render() {
   $('#sync-btn').hidden = !state.linked;
@@ -335,3 +339,177 @@ document.querySelector('#clear-btn').addEventListener('click', async () => {
   }
 });
 
+
+
+/* dashboard-redesign-v1: navigation, profile and overview */
+const pageNames = {dashboard:'Dashboard',calendar:'Calendar',assignments:'Assignments',courses:'Courses',analytics:'Study Analytics',goals:'Goals',settings:'Settings'};
+function goToPage(page) {
+  if (!Object.hasOwn(pageNames, page)) return;
+  document.querySelectorAll('.app-page').forEach(el => { el.hidden = el.dataset.page !== page; });
+  document.querySelectorAll('.sidebar-nav [data-nav]').forEach(el => {
+    const active = el.dataset.nav === page;
+    el.classList.toggle('active',active);
+    if (active) el.setAttribute('aria-current','page'); else el.removeAttribute('aria-current');
+  });
+  document.querySelector('#page-title').textContent = pageNames[page];
+  document.querySelector('#profile-menu').hidden = true;
+  document.querySelector('#profile-toggle').setAttribute('aria-expanded','false');
+  document.querySelector('#workspace').classList.remove('sidebar-open');
+  document.querySelector('#sidebar-toggle').setAttribute('aria-expanded','false');
+  window.scrollTo({top:0,behavior:'instant'});
+}
+document.querySelectorAll('[data-nav]').forEach(button => {
+  button.addEventListener('click', () => goToPage(button.dataset.nav));
+});
+document.querySelector('#sidebar-toggle').addEventListener('click', () => {
+  const open = document.querySelector('#workspace').classList.toggle('sidebar-open');
+  document.querySelector('#sidebar-toggle').setAttribute('aria-expanded',String(open));
+});
+const profileToggle = document.querySelector('#profile-toggle');
+const profileMenu = document.querySelector('#profile-menu');
+profileToggle.addEventListener('click', () => {
+  profileMenu.hidden = !profileMenu.hidden;
+  profileToggle.setAttribute('aria-expanded',String(!profileMenu.hidden));
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('.profile-wrap')) {
+    profileMenu.hidden = true;
+    profileToggle.setAttribute('aria-expanded','false');
+  }
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    profileMenu.hidden = true;
+    profileToggle.setAttribute('aria-expanded','false');
+    document.querySelector('#workspace').classList.remove('sidebar-open');
+  }
+});
+async function loadAccountInfo() {
+  try {
+    const {user} = await api('/auth/me');
+    const name = user?.name || 'Student';
+    const initials = name.trim().split(/\s+/).slice(0,2).map(word=>word[0]?.toUpperCase() || '').join('');
+    document.querySelector('#profile-avatar').textContent = initials || 'U';
+    document.querySelector('#profile-menu-avatar').textContent = initials || 'U';
+    document.querySelector('#profile-name').textContent = name;
+    document.querySelector('#profile-email').textContent = user.email || '';
+    document.querySelector('#profile-display-name').value = name;
+    document.querySelector('#profile-display-email').value = user.email || '';
+    document.querySelector('#welcome-title').textContent = `Welcome back, ${name.split(' ')[0]}!`;
+  } catch (err) { say(err.message,true); }
+}
+/* dashboard-improvements-v3: status labels and meaningful weekly metrics */
+function dashboardDeadlineStatus(iso, now = new Date()) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return { label: 'No date', tone: 'normal' };
+  if (date < now) return { label: 'Overdue', tone: 'overdue' };
+  if (date.toDateString() === now.toDateString()) return { label: 'Due today', tone: 'today' };
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (date.toDateString() === tomorrow.toDateString()) return { label: 'Tomorrow', tone: 'soon' };
+  return { label: dayFmt.format(date), tone: 'normal' };
+}
+function updateDashboardOverview() {
+  const now = new Date();
+  const upcoming = state.queue.filter(a => new Date(a.due_at) >= now);
+  const overdue = state.queue.filter(a => new Date(a.due_at) < now);
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  const nextMonday = new Date(monday);
+  nextMonday.setDate(nextMonday.getDate() + 7);
+  const dueThisWeek = upcoming.filter(a => {
+    const d = new Date(a.due_at);
+    return d >= monday && d < nextMonday;
+  }).length;
+  const completed = state.done.length;
+  const total = state.queue.length + completed;
+  const rate = total ? Math.round((completed / total) * 100) : 0;
+  document.querySelector('#stat-courses').textContent = state.courses.length;
+  document.querySelector('#stat-upcoming').textContent = upcoming.length;
+  document.querySelector('#stat-completed').textContent = completed;
+  document.querySelector('#stat-sessions').textContent = state.sessions.length;
+  document.querySelector('#stat-due-week').textContent = dueThisWeek;
+  document.querySelector('#stat-completion').textContent = `${rate}%`;
+  const note = document.querySelector('#stat-upcoming').nextElementSibling;
+  if (note) note.textContent = overdue.length ? `${overdue.length} overdue tasks also need attention` : 'Future deadlines';
+  const next = [...state.queue].sort((a,b) => new Date(a.due_at) - new Date(b.due_at)).slice(0,5);
+  document.querySelector('#dashboard-upcoming').innerHTML = next.length ? next.map(item => {
+    const status = dashboardDeadlineStatus(item.due_at, now);
+    const when = new Date(item.due_at);
+    const dateLabel = Number.isNaN(when.getTime()) ? '' : dayFmt.format(when);
+    return `<li><div class="overview-main">${esc(item.title)}<small>${esc(item.course_code)}</small></div><div class="overview-deadline"><span class="deadline-badge deadline-${status.tone}">${esc(status.label)}</span><time>${esc(dateLabel)}</time></div></li>`;
+  }).join('') : '<li class="hint">No pending assignments. You are all caught up!</li>';
+  const sessions = [...state.sessions].filter(s => new Date(s.starts_at) >= now).sort((a,b) => new Date(a.starts_at)-new Date(b.starts_at)).slice(0,4);
+  document.querySelector('#dashboard-sessions').innerHTML = sessions.map(item =>
+    `<li><div class="overview-main">${esc(item.topic || 'Study session')}<small>${esc(item.course_code)}</small></div><time>${esc(dayFmt.format(new Date(item.starts_at)))}</time></li>`
+  ).join('');
+  document.querySelector('#dashboard-session-empty').hidden = sessions.length > 0;
+}
+
+const renderWithClear = render;
+render = function () {
+  renderWithClear();
+  updateDashboardOverview();
+};
+document.querySelector('#calendar-add-session').addEventListener('click', () => document.querySelector('#session-dialog').showModal());
+document.querySelector('#calendar-add-task').addEventListener('click', openAddTask);
+loadAccountInfo();
+
+
+/* profile-settings-v2 */
+function setProfileText(user) {
+  const name = user.name || 'Student';
+  const initials = name.trim().split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('') || 'U';
+  document.querySelector('#profile-avatar').textContent = initials;
+  document.querySelector('#profile-menu-avatar').textContent = initials;
+  document.querySelector('#profile-name').textContent = name;
+  document.querySelector('#profile-email').textContent = user.email || '';
+  document.querySelector('#welcome-title').textContent = `Welcome back, ${name.split(/\s+/)[0]}!`;
+  document.querySelector('#profile-display-name').value = name;
+  document.querySelector('#profile-display-email').value = user.email || '';
+}
+async function loadProfileSettings() {
+  try {
+    const [account, preferences] = await Promise.all([api('/auth/me'),api('/auth/preferences')]);
+    setProfileText(account.user);
+    const p = preferences.preferences || {};
+    document.querySelector('#profile-university').value = p.university || '';
+    document.querySelector('#profile-major').value = p.major || '';
+    document.querySelector('#profile-weekly-hours').value = p.weeklyHours || '10';
+    document.querySelector('#profile-session-length').value = p.sessionMinutes || '45';
+  } catch (err) { say(err.message,true); }
+}
+function submitSettings(formSelector, feedbackSelector, endpoint, makeBody, onSaved) {
+  const form = document.querySelector(formSelector);
+  form.addEventListener('submit',async event => {
+    event.preventDefault();
+    const feedback = document.querySelector(feedbackSelector);
+    const button = form.querySelector('button[type="submit"]');
+    feedback.textContent = '';
+    feedback.classList.remove('is-error');
+    button.disabled = true;
+    try {
+      const response = await api(endpoint,{method:'PUT',body:makeBody(new FormData(form))});
+      if (onSaved) onSaved(response);
+      feedback.textContent = 'Saved successfully.';
+    } catch (err) {
+      feedback.textContent = err.message;
+      feedback.classList.add('is-error');
+    } finally { button.disabled = false; }
+  });
+}
+submitSettings('#profile-form','#profile-feedback','/auth/profile',f=>({name:f.get('name'),email:f.get('email')}),r=>setProfileText(r.user));
+submitSettings('#preferences-form','#preferences-feedback','/auth/preferences',f=>({
+  university:f.get('university'), major:f.get('major'),weeklyHours:Number(f.get('weeklyHours')),sessionMinutes:Number(f.get('sessionMinutes'))
+}));
+// Existing v1 navigation already routes data-nav="settings" to the Settings page.
+// Scroll to the corresponding subsection after the page is made visible.
+document.querySelectorAll('.profile-menu [data-section]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    const section=document.getElementById(button.dataset.section);
+    if(section) section.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+loadProfileSettings();
+
+// dashboard-improvements-v3: reuse the existing study-session dialog.
+document.querySelector('#dashboard-add-session').addEventListener('click', () =>
+  document.querySelector('#session-dialog').showModal());

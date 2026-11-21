@@ -229,6 +229,52 @@ export function setupAuth(app, db) {
     res.json({ user });
   });
 
+
+  // profile-settings-v2: authenticated account details and per-user preferences.
+  app.put('/api/auth/profile', requireAuth(db), (req, res) => {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (name.length < 2 || name.length > 100) return res.status(400).json({ error: 'Name must be 2–100 characters.' });
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Enter a valid email address.' });
+    }
+    try {
+      db.prepare('UPDATE users SET name = ?, email = ? WHERE id = ?').run(name, email, req.user.id);
+      res.json({ user: { id: req.user.id, name, email } });
+    } catch (err) {
+      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({error:'That email is already in use.'});
+      console.error('Profile update failed:', err);
+      res.status(500).json({error:'Unable to update profile.'});
+    }
+  });
+
+  const preferenceKeys = ['university', 'major', 'weeklyHours', 'sessionMinutes'];
+  app.get('/api/auth/preferences', requireAuth(db), (req,res) => {
+    const rows = db.prepare('SELECT key, value FROM user_settings WHERE user_id = ?').all(req.user.id);
+    const settings = Object.fromEntries(rows.filter(r => preferenceKeys.includes(r.key)).map(r=>[r.key,r.value]));
+    res.json({preferences:settings});
+  });
+  app.put('/api/auth/preferences', requireAuth(db), (req,res) => {
+    const b = req.body ?? {};
+    const university = typeof b.university === 'string' ? b.university.trim() : '';
+    const major = typeof b.major === 'string' ? b.major.trim() : '';
+    const hours = Number(b.weeklyHours);
+    const minutes = Number(b.sessionMinutes);
+    if (university.length > 100 || major.length > 100 || !Number.isInteger(hours) || hours < 1 || hours > 80 || ![25,45,60,90].includes(minutes)) {
+      return res.status(400).json({error:'Please check your study preferences.'});
+    }
+    const prefs = {university, major, weeklyHours:String(hours), sessionMinutes:String(minutes)};
+    const put = db.prepare(`INSERT INTO user_settings(user_id, key, value) VALUES (?, ?, ?)
+      ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`);
+    try {
+      db.transaction(()=>{ for (const [key,value] of Object.entries(prefs)) put.run(req.user.id,key,value); })();
+      res.json({preferences:prefs});
+    } catch(err) {
+      console.error('Preferences update failed:',err);
+      res.status(500).json({error:'Unable to save preferences.'});
+    }
+  });
+
   app.post('/api/auth/logout', (req, res) => {
     const token = getCookie(req);
 
