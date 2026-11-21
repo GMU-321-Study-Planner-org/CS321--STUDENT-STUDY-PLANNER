@@ -10,6 +10,10 @@ const { parseFeed, saveFeed, getEventsBetween } = await import('../backend/serve
 
 const ics = readFileSync(new URL('./sample-canvas.ics', import.meta.url), 'utf8');
 const NOW = new Date('2026-11-09T12:00:00Z');
+// Exercise the signed-in-user API with a dedicated test account.
+const TEST_USER_ID = Number(db.prepare(
+  'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)'
+).run('Canvas Test User', 'canvas-test@example.com', 'test-only-hash').lastInsertRowid);
 
 test('splits assignments from calendar events', () => {
   const { assignments, events } = parseFeed(ics, NOW);
@@ -42,41 +46,41 @@ test('parses titles, course codes and times', () => {
 });
 
 test('saves to the database and re-syncs without losing checkmarks', () => {
-  const first = saveFeed(parseFeed(ics, NOW), '2026-11-09T12:00:00.000Z');
+  const first = saveFeed(TEST_USER_ID, parseFeed(ics, NOW), '2026-11-09T12:00:00.000Z');
   assert.deepEqual(first, { assignments: 3, events: 5, removed: 0 });
 
   // Student finishes Lab 9.
-  db.prepare("UPDATE assignments SET completed = 1 WHERE uid = 'event-assignment-1003'").run();
+  db.prepare("UPDATE user_assignments SET completed = 1 WHERE user_id = ? AND uid = 'event-assignment-1003'").run(TEST_USER_ID);
 
   // Next sync: instructor moved Homework 4, deleted Lab 9 and Quiz 7 from Canvas.
   const edited = ics
     .replace('DTSTART:20261113T045900Z\nDTEND:20261113T045900Z', 'DTSTART:20261114T045900Z\nDTEND:20261114T045900Z')
     .replace(/BEGIN:VEVENT\nUID:event-assignment-100[23][\s\S]*?END:VEVENT\n/g, '');
-  const second = saveFeed(parseFeed(edited, NOW), '2026-11-10T12:00:00.000Z');
+  const second = saveFeed(TEST_USER_ID, parseFeed(edited, NOW), '2026-11-10T12:00:00.000Z');
   assert.equal(second.removed, 1, 'only the unfinished, deleted quiz is pruned');
 
-  const rows = db.prepare("SELECT uid, due_at, completed FROM assignments ORDER BY uid").all();
+  const rows = db.prepare("SELECT uid, due_at, completed FROM user_assignments WHERE user_id = ? ORDER BY uid").all(TEST_USER_ID);
   assert.deepEqual(rows, [
     { uid: 'event-assignment-1001', due_at: '2026-11-14T04:59:00.000Z', completed: 0 },
     { uid: 'event-assignment-1003', due_at: '2026-11-15T23:59:00.000Z', completed: 1 },
   ]);
 
   // Manual tasks are never touched by sync.
-  const general = db.prepare("SELECT id FROM courses WHERE code = 'CS 321-001'").get().id;
-  db.prepare("INSERT INTO assignments (course_id, title, due_at) VALUES (?, 'Study group', '2026-11-12T22:00:00Z')").run(general);
-  saveFeed(parseFeed(edited, NOW), '2026-11-11T12:00:00.000Z');
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE source = 'manual'").get().n, 1);
+  const general = db.prepare("SELECT id FROM user_courses WHERE user_id = ? AND code = 'CS 321-001'").get(TEST_USER_ID).id;
+  db.prepare("INSERT INTO user_assignments (user_id, course_id, title, due_at) VALUES (?, ?, 'Study group', '2026-11-12T22:00:00Z')").run(TEST_USER_ID, general);
+  saveFeed(TEST_USER_ID, parseFeed(edited, NOW), '2026-11-11T12:00:00.000Z');
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM user_assignments WHERE user_id = ? AND source = 'manual'").get(TEST_USER_ID).n, 1);
 });
 
 test('an empty feed does not wipe the planner', () => {
   const empty = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:x\nEND:VCALENDAR\n';
-  const r = saveFeed(parseFeed(empty, NOW), '2026-11-12T12:00:00.000Z');
+  const r = saveFeed(TEST_USER_ID, parseFeed(empty, NOW), '2026-11-12T12:00:00.000Z');
   assert.equal(r.removed, 0);
-  assert.ok(db.prepare('SELECT COUNT(*) n FROM calendar_events').get().n > 0);
+  assert.ok(db.prepare('SELECT COUNT(*) n FROM user_calendar_events WHERE user_id = ?').get(TEST_USER_ID).n > 0);
 });
 
 test('week query returns lectures in order', () => {
-  const week = getEventsBetween('2026-11-09T05:00:00.000Z', '2026-11-16T05:00:00.000Z');
+  const week = getEventsBetween(TEST_USER_ID, '2026-11-09T05:00:00.000Z', '2026-11-16T05:00:00.000Z');
   assert.deepEqual(week.map((e) => e.title), ['Lecture']);
   assert.equal(week[0].course_code, 'CS 321-001');
 });
