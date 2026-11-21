@@ -628,6 +628,7 @@ function setProfileText(user) {
   document.querySelector('#profile-menu-avatar').textContent = initials;
   document.querySelector('#profile-name').textContent = name;
   document.querySelector('#profile-email').textContent = user.email || '';
+  if (typeof currentProfilePhotoUrl !== 'undefined' && !currentProfilePhotoUrl) updatePhotoHolders(null);
   document.querySelector('#welcome-title').textContent = `Welcome back, ${name.split(/\s+/)[0]}!`;
   document.querySelector('#profile-display-name').value = name;
   document.querySelector('#profile-display-email').value = user.email || '';
@@ -859,3 +860,196 @@ function renderStudyAnalytics() {
 const renderBeforeAnalyticsV8=render;
 render=function(){renderBeforeAnalyticsV8();renderStudyAnalytics();};
 renderStudyAnalytics();
+
+
+/* goals-focus-v9: weekly goal, real study logs, and a browser focus stopwatch. */
+const focusUi = {
+  started: null, elapsedMs: 0, ticker: null,
+};
+function focusElapsedMs() {
+  return focusUi.elapsedMs + (focusUi.started === null ? 0 : Date.now() - focusUi.started);
+}
+function focusFormat(ms) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60]
+    .map(n=>String(n).padStart(2,'0')).join(':');
+}
+function focusRefreshClock() {
+  document.querySelector('#focus-clock').textContent=focusFormat(focusElapsedMs());
+  const running=focusUi.started!==null, elapsed=focusElapsedMs();
+  document.querySelector('#focus-start').disabled=running;
+  document.querySelector('#focus-start').textContent=elapsed?'Resume':'Start';
+  document.querySelector('#focus-pause').disabled=!running;
+  document.querySelector('#focus-reset').disabled=elapsed===0;
+  document.querySelector('#focus-save').disabled=running||elapsed<60000||elapsed>240*60000;
+  document.querySelector('#focus-state').textContent=running?'Focusing':elapsed?'Paused':'Ready';
+}
+function focusStopTicker() {
+  if(focusUi.ticker!==null) clearInterval(focusUi.ticker);
+  focusUi.ticker=null;
+}
+document.querySelector('#focus-start').addEventListener('click',()=>{
+  if(focusUi.started!==null)return;
+  focusUi.started=Date.now();
+  focusStopTicker();
+  focusUi.ticker=setInterval(focusRefreshClock,250);
+  focusRefreshClock();
+});
+document.querySelector('#focus-pause').addEventListener('click',()=>{
+  if(focusUi.started===null)return;
+  focusUi.elapsedMs+=Date.now()-focusUi.started;
+  focusUi.started=null;
+  focusStopTicker();focusRefreshClock();
+});
+document.querySelector('#focus-reset').addEventListener('click',()=>{
+  if(focusElapsedMs()>0 && !window.confirm('Discard the current unsaved focus time?'))return;
+  focusUi.elapsedMs=0;focusUi.started=null;focusStopTicker();focusRefreshClock();
+});
+document.querySelector('#focus-save').addEventListener('click',async()=>{
+  if(focusUi.started!==null)return;
+  const minutes=Math.floor(focusUi.elapsedMs/60000);
+  if(minutes<1 || minutes>240)return;
+  const btn=document.querySelector('#focus-save'),feedback=document.querySelector('#focus-feedback');
+  btn.disabled=true;
+  feedback.textContent='Saving your session…';
+  try {
+    await api('/focus-logs',{method:'POST',body:{
+      minutes,courseCode:document.querySelector('#focus-course').value,
+      topic:document.querySelector('#focus-topic').value.trim()
+    }});
+    focusUi.elapsedMs=0;focusUi.started=null;focusStopTicker();focusRefreshClock();
+    feedback.textContent=`Saved ${minutes} minute${minutes===1?'':'s'} of actual study time.`;
+    await load();
+  }catch(err){feedback.textContent=`Could not save: ${err.message}`;focusRefreshClock();}
+});
+function focusWeekBounds() {
+  const now=new Date();
+  const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-((now.getDay()+6)%7));
+  const next=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+7);
+  return {mon,next};
+}
+function renderGoalsFocus() {
+  const {mon,next}=focusWeekBounds();
+  const weekly=(state.focusLogs||[]).filter(log=>{
+    const time=new Date(log.finished_at);
+    return time>=mon && time<next;
+  });
+  const minutes=weekly.reduce((sum,log)=>sum+(Number(log.minutes)||0),0);
+  const hrs=minutes/60;
+  const goalInput=document.querySelector('#profile-weekly-hours');
+  const goalNumber=Number(goalInput?.value);
+  const goal=Number.isFinite(goalNumber)&&goalNumber>0?goalNumber:10;
+  const pct=Math.min(100,Math.round(hrs/goal*100));
+  const hoursLabel=Number(hrs.toFixed(1));
+  const set=(id,value)=>{document.querySelector(id).textContent=String(value)};
+  set('#focus-goal',`${goal} h`);
+  set('#focus-week',`${hoursLabel} h`);
+  set('#focus-goal-progress',`${hoursLabel} / ${goal} h`);
+  set('#focus-goal-percent',`${pct}%`);
+  set('#analytics-actual-hours',`${hoursLabel} h`);
+  document.querySelector('#focus-goal-fill').style.width=`${pct}%`;
+  document.querySelector('#focus-progress').setAttribute('aria-valuenow',String(pct));
+  const plan=state.sessions.reduce((sum,s)=>{
+    const start=new Date(s.starts_at).getTime(),mins=Number(s.minutes);
+    if(!Number.isFinite(start)||!Number.isFinite(mins)||mins<=0)return sum;
+    return sum+Math.max(0,Math.min(start+mins*60000,next.getTime())-Math.max(start,mon.getTime()))/3600000;
+  },0);
+  set('#focus-planned',`${Number(plan.toFixed(1))} h`);
+  const select=document.querySelector('#focus-course'),selected=select.value;
+  select.replaceChildren(new Option('General study',''));
+  for(const course of state.courses){select.add(new Option(course.code,course.code));}
+  if([...select.options].some(o=>o.value===selected))select.value=selected;
+  const history=document.querySelector('#focus-history');history.replaceChildren();
+  if(!weekly.length){
+    const li=document.createElement('li');li.textContent='No focus sessions saved this week yet.';history.append(li);
+  }else for(const log of weekly.slice(0,8)){
+    const li=document.createElement('li');
+    const name=document.createElement('strong');name.textContent=log.topic||log.course_code||'Focused study';
+    const meta=document.createElement('span');
+    meta.textContent=`${log.minutes} min · ${new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric'}).format(new Date(log.finished_at))}`;
+    li.append(name,meta);history.append(li);
+  }
+}
+document.querySelector('#focus-edit-goal').addEventListener('click',()=>{
+  goToPage('settings');
+  document.querySelector('#academic-preferences').scrollIntoView({behavior:'smooth',block:'start'});
+  document.querySelector('#profile-weekly-hours').focus({preventScroll:true});
+});
+const renderBeforeGoalsV9=render;
+render=function(){renderBeforeGoalsV9();renderGoalsFocus();};
+// Update the progress card when preferences are saved, without needing another page reload.
+document.querySelector('#preferences-form').addEventListener('submit',()=>setTimeout(renderGoalsFocus,250));
+focusRefreshClock();
+renderGoalsFocus();
+
+
+/* profile-photos-v11: authenticated profile image with initials fallback. */
+let currentProfilePhotoUrl = null;
+const photoHolderSelectors = ['#profile-avatar','#profile-menu-avatar','#profile-photo-preview'];
+function updatePhotoHolders(photoUrl) {
+  const initials = (document.querySelector('#profile-name').textContent || 'Student')
+    .trim().split(/\s+/).slice(0,2).map(word=>word[0]?.toUpperCase()||'').join('') || 'U';
+  for (const selector of photoHolderSelectors) {
+    const holder = document.querySelector(selector);
+    if (!holder) continue;
+    holder.replaceChildren();
+    if (photoUrl) {
+      const image = document.createElement('img');
+      image.src = photoUrl;
+      image.alt = 'Your profile picture';
+      holder.append(image);
+    } else {
+      holder.textContent = initials;
+    }
+  }
+}
+async function refreshProfilePhoto() {
+  let newUrl = null;
+  try {
+    const response = await fetch('/api/auth/avatar', {cache:'no-store'});
+    if (response.status === 401) return;
+    if (response.ok) newUrl = URL.createObjectURL(await response.blob());
+    else if (response.status !== 404) throw new Error('Unable to load profile photo.');
+  } catch (err) { say(err.message,true); return; }
+  const oldUrl = currentProfilePhotoUrl;
+  currentProfilePhotoUrl = newUrl;
+  updatePhotoHolders(newUrl);
+  if (oldUrl) URL.revokeObjectURL(oldUrl);
+}
+const photoFile = document.querySelector('#profile-photo-file');
+const photoFeedback = document.querySelector('#profile-photo-feedback');
+const photoUpload = document.querySelector('#profile-photo-upload');
+const photoRemove = document.querySelector('#profile-photo-remove');
+photoUpload.addEventListener('click', async () => {
+  const file = photoFile.files?.[0];
+  if (!file) { photoFeedback.textContent='Choose a picture first.'; return; }
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size>2*1024*1024) {
+    photoFeedback.textContent='Please choose a JPG, PNG, or WebP under 2 MB.'; return;
+  }
+  photoUpload.disabled=true;
+  photoFeedback.textContent='Uploading…';
+  try {
+    const response=await fetch('/api/auth/avatar',{
+      method:'PUT',headers:{'Content-Type':file.type},body:file
+    });
+    const result=await response.json().catch(()=>({}));
+    if (!response.ok) throw new Error(result.error||'Upload failed.');
+    await refreshProfilePhoto();
+    photoFeedback.textContent='Profile picture saved.';
+    photoFile.value='';
+  } catch (err) { photoFeedback.textContent=err.message; }
+  finally {photoUpload.disabled=false;}
+});
+photoRemove.addEventListener('click', async () => {
+  if (!confirm('Remove your profile picture? Your initials will appear instead.')) return;
+  photoRemove.disabled=true;
+  try {
+    const response=await fetch('/api/auth/avatar',{method:'DELETE'});
+    if (!response.ok) throw new Error('Unable to remove profile picture.');
+    await refreshProfilePhoto();
+    photoFeedback.textContent='Profile picture removed.';
+    photoFile.value='';
+  } catch (err) {photoFeedback.textContent=err.message;}
+  finally {photoRemove.disabled=false;}
+});
+refreshProfilePhoto();

@@ -338,3 +338,52 @@ button.small { padding: .2rem .45rem; font-size: .78rem; }
 .analytics-course-heading span {color:var(--muted);font-size:12px;}
 @media(max-width:1080px){.analytics-summary {grid-template-columns:repeat(2,minmax(0,1fr));}.analytics-grid {grid-template-columns:1fr;}}
 @media(max-width:600px){.analytics-summary {grid-template-columns:1fr 1fr;gap:10px;}.analytics-stat {padding:14px;}.analytics-stat strong {font-size:25px;}.analytics-panel {padding:16px;}.analytics-week-chart {gap:5px;}}
+
+
+/* goals-focus-v9 */
+.focus-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 22px;}
+.focus-stat {display:grid;gap:10px;min-width:0;}
+.focus-stat>span {color:var(--muted);font-size:13px;font-weight:700;}
+.focus-stat strong {font-size:34px;letter-spacing:-.04em;}
+.focus-stat small {color:var(--muted);font-size:12px;}
+.focus-grid {display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+.focus-panel {min-width:0;}
+.focus-goal-top {display:flex;justify-content:space-between;align-items:center;margin:34px 0 12px;gap:12px;}
+.focus-goal-top strong {font-size:25px;}.focus-goal-top span {color:var(--green);font-weight:700;}
+.focus-progress {height:12px;border-radius:99px;overflow:hidden;background:#e4eee6;}
+.focus-progress>div {height:100%;width:0;background:var(--green);border-radius:99px;transition:width .25s ease;}
+.focus-small-heading {font-size:15px;margin:35px 0 15px;}
+.focus-history {list-style:none;margin:0;padding:0;display:grid;gap:8px;}
+.focus-history li {display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:9px;padding:12px;font-size:13px;}
+.focus-history li span {color:var(--muted);text-align:right;}
+.focus-label {display:block;color:var(--muted);font-size:13px;font-weight:700;margin:16px 0 6px;}
+.focus-panel select,.focus-panel input {width:100%;max-width:100%;padding:12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);}
+.focus-clock {font-size:clamp(36px,5vw,62px);text-align:center;letter-spacing:-.04em;font-variant-numeric:tabular-nums;font-weight:750;padding:32px 0 24px;}
+.focus-state {font-size:12px;font-weight:700;color:var(--green);}
+.focus-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.focus-actions button {min-width:0;}
+.focus-actions button:disabled {opacity:.45;cursor:not-allowed;}
+.focus-panel .analytics-note {margin-top:17px;}
+.focus-analytics-actual {margin:0 0 18px;padding:14px 18px;border:1px solid var(--line);border-radius:11px;background:var(--panel);}
+.focus-analytics-actual strong {color:var(--green);}.focus-analytics-actual span {color:var(--muted);font-size:13px;}
+@media(max-width:1000px) {.focus-grid {grid-template-columns:1fr;}}
+@media(max-width:650px) {.focus-stats {grid-template-columns:1fr;}.focus-goal-top strong{font-size:20px;}}
+
+
+/* profile-photos-v11: clean circular image crops and private profile photo editor */
+#profile-avatar, #profile-menu-avatar, #profile-photo-preview {overflow:hidden; flex-shrink:0;}
+#profile-avatar img, #profile-menu-avatar img, #profile-photo-preview img {
+  display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;
+}
+.photo-settings {display:flex;align-items:center;gap:18px;padding:16px;
+  border:1px solid var(--line);border-radius:12px;margin:14px 0 20px;background:#f8faf8;}
+.photo-settings-preview {display:grid;place-items:center;width:76px;height:76px;
+  border-radius:50%;background:#1b6745;color:white;font-size:25px;font-weight:700;}
+.photo-settings-fields {min-width:0;flex:1;display:grid;gap:7px;}
+.photo-settings-fields label {font-weight:700;font-size:14px;}
+.photo-settings-fields input {font-size:12px;max-width:100%;}
+.photo-settings-fields small {color:var(--muted);font-size:12px;}
+.photo-settings-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.photo-settings-actions button {font-size:12px;padding:8px 11px;}
+#profile-photo-feedback {font-size:12px;color:var(--muted);margin:0;min-height:18px;}
+@media(max-width:540px) {.photo-settings {align-items:flex-start;flex-direction:column;}}

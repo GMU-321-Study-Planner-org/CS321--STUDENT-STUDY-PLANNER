@@ -114,6 +114,7 @@
             <article class="app-panel analytics-stat"><span class="analytics-stat-label">Overdue assignments</span><strong id="analytics-overdue">0</strong><small>Incomplete and past due</small></article>
             <article class="app-panel analytics-stat"><span class="analytics-stat-label">Scheduled this week</span><strong id="analytics-week-hours">0 h</strong><small>Planned hours, not time tracked</small></article>
           </div>
+          <p class="focus-analytics-actual">Actual time studied this week: <strong id="analytics-actual-hours">0 h</strong> <span>· Logged with the Focus Timer</span></p>
           <div class="analytics-grid">
             <section class="app-panel analytics-panel">
               <div class="panel-heading"><div><p class="eyebrow">THIS WEEK</p><h2>Planned study hours</h2></div><span class="analytics-muted" id="analytics-week-range"></span></div>
@@ -133,13 +134,61 @@
           </div>
           <section class="app-panel analytics-panel"><div class="panel-heading"><div><p class="eyebrow">BY COURSE</p><h2>Course progress</h2></div></div><div id="analytics-courses" class="analytics-course-list"></div></section>
         </section>
-        <section class="app-page" data-page="goals" hidden><div class="page-intro"><h2>Goals</h2><p>Create a routine that fits your courses and schedule.</p></div><div class="app-panel coming-soon"><span>◎</span><h2>Your goals, all in one place</h2><p>Weekly targets and progress milestones will be built in the next phase.</p></div></section>
+        <!-- goals-focus-v9: genuine goals and tracked focus sessions -->
+        <section class="app-page" data-page="goals" hidden>
+          <div class="page-intro"><h2>Goals &amp; Focus</h2><p>Set your weekly study target, focus on one task, and measure actual study time.</p></div>
+          <div class="focus-stats">
+            <article class="app-panel focus-stat"><span>Weekly goal</span><strong id="focus-goal">10 h</strong><small>From your academic preferences</small></article>
+            <article class="app-panel focus-stat"><span>Studied this week</span><strong id="focus-week">0 h</strong><small>Saved focus sessions</small></article>
+            <article class="app-panel focus-stat"><span>Scheduled this week</span><strong id="focus-planned">0 h</strong><small>Upcoming and past planned sessions</small></article>
+          </div>
+          <div class="focus-grid">
+            <section class="app-panel focus-panel">
+              <div class="panel-heading"><div><p class="eyebrow">YOUR STUDY TARGET</p><h2>Weekly progress</h2></div><button class="text-action" id="focus-edit-goal" type="button">Edit goal →</button></div>
+              <div class="focus-goal-top"><strong id="focus-goal-progress">0 / 10 h</strong><span id="focus-goal-percent">0%</span></div>
+              <div class="focus-progress" id="focus-progress" role="progressbar" aria-label="Actual study hours toward weekly goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="focus-goal-fill"></div></div>
+              <p class="analytics-note">This progress measures time saved with the Focus Timer. Scheduled sessions are shown separately so they aren't counted as time studied.</p>
+              <h3 class="focus-small-heading">This week's logged sessions</h3>
+              <ul id="focus-history" class="focus-history"><li>No focus time recorded this week yet.</li></ul>
+            </section>
+            <section class="app-panel focus-panel">
+              <div class="panel-heading"><div><p class="eyebrow">DEEP WORK</p><h2>Focus timer</h2></div><span id="focus-state" class="focus-state">Ready</span></div>
+              <label class="focus-label" for="focus-course">Course (optional)</label>
+              <select id="focus-course"><option value="">General study</option></select>
+              <label class="focus-label" for="focus-topic">What are you studying?</label>
+              <input id="focus-topic" type="text" maxlength="120" placeholder="e.g., CS 483 dynamic programming">
+              <div id="focus-clock" class="focus-clock" role="timer" aria-label="Elapsed focus time">00:00:00</div>
+              <div class="focus-actions">
+                <button id="focus-start" type="button">Start</button>
+                <button id="focus-pause" type="button" class="ghost" disabled>Pause</button>
+                <button id="focus-reset" type="button" class="ghost" disabled>Reset</button>
+                <button id="focus-save" type="button" disabled>Save session</button>
+              </div>
+              <p id="focus-feedback" class="analytics-note" role="status" aria-live="polite">Study for at least one minute to save a session. Keeping this browser tab open preserves an active timer.</p>
+            </section>
+          </div>
+        </section>
         <!-- profile-settings-v2 -->
         <section class="app-page" data-page="settings" hidden>
           <div class="page-intro"><h2>Account settings</h2><p>Make this workspace your own.</p></div>
           <div class="settings-grid">
             <section class="app-panel settings-card" id="account-profile">
               <div class="settings-heading"><span class="settings-icon">◉</span><div><h2>My profile</h2><p>Update the name and email used for your account.</p></div></div>
+
+              <!-- profile-photos-v11: avatar editor outside profile form -->
+              <div class="photo-settings" aria-label="Profile picture">
+                <div class="photo-settings-preview" id="profile-photo-preview">U</div>
+                <div class="photo-settings-fields">
+                  <label for="profile-photo-file">Profile picture</label>
+                  <input type="file" id="profile-photo-file" accept="image/png,image/jpeg,image/webp">
+                  <small>JPG, PNG, or WebP · maximum 2 MB</small>
+                  <div class="photo-settings-actions">
+                    <button type="button" id="profile-photo-upload">Upload photo</button>
+                    <button type="button" class="ghost" id="profile-photo-remove">Remove photo</button>
+                  </div>
+                  <p id="profile-photo-feedback" role="status" aria-live="polite"></p>
+                </div>
+              </div>
               <form id="profile-form" class="settings-form">
                 <label for="profile-display-name">Full name</label>
                 <input id="profile-display-name" name="name" type="text" minlength="2" maxlength="100" autocomplete="name" required>

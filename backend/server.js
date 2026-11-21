@@ -91,6 +91,11 @@ app.get('/api/state', (req, res) => {
       JOIN user_courses c ON c.id = s.course_id
       WHERE s.user_id = ? ORDER BY s.starts_at
     `).all(userId),
+    focusLogs: db.prepare(`
+      SELECT f.id, f.topic, f.minutes, f.finished_at, c.code AS course_code
+      FROM user_focus_logs f LEFT JOIN user_courses c ON c.id = f.course_id
+      WHERE f.user_id = ? ORDER BY f.finished_at DESC LIMIT 200
+    `).all(userId),
     events: getEventsBetween(userId, '0000', '9999'), // the whole synced window; the week view pages on the client
     linked: Boolean(getSetting(userId, 'feed_url')), // the feed URL itself is a secret, so it never goes to the browser
     lastSync: getLastSync(userId),
@@ -171,6 +176,22 @@ app.patch('/api/courses/:id', route((req, res) => {
     .run(p, req.params.id, req.user.id);
   if (!changes) return res.status(404).json({ error: 'Course not found.' });
   res.json({ ok: true });
+}));
+
+// goals-focus-v9: a saved focus block counts as actual, not scheduled, study time.
+app.post('/api/focus-logs', route((req, res) => {
+  const minutes = Number(req.body?.minutes);
+  const topic = String(req.body?.topic ?? '').trim();
+  const courseCode = String(req.body?.courseCode ?? '').trim();
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 240 || topic.length > 120 || courseCode.length > 100) {
+    return res.status(400).json({ error: 'Study time must be 1–240 whole minutes.' });
+  }
+  const courseId = courseCode ? courseIdFor(req.user.id, courseCode) : null;
+  const result = db.prepare(`
+    INSERT INTO user_focus_logs(user_id, course_id, topic, minutes, finished_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(req.user.id, courseId, topic || null, minutes, new Date().toISOString());
+  res.status(201).json({ id: result.lastInsertRowid });
 }));
 
 app.post('/api/sessions', route((req, res) => {

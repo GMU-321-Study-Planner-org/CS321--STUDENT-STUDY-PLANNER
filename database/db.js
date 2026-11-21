@@ -201,6 +201,27 @@ const migrations = [
   CREATE INDEX IF NOT EXISTS idx_user_assignments_source
     ON user_assignments(user_id, source);
   `,
+  // goals-focus-v9: completed focus blocks for actual study-time analytics.
+  `
+  CREATE TABLE user_focus_logs (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id INTEGER REFERENCES user_courses(id),
+    topic TEXT,
+    minutes INTEGER NOT NULL CHECK (minutes BETWEEN 1 AND 240),
+    finished_at TEXT NOT NULL
+  );
+  CREATE INDEX idx_focus_user_finished ON user_focus_logs(user_id, finished_at);
+  `,
+  // profile-photos-v11: private user-owned image blobs, not public static uploads.
+  `
+  CREATE TABLE user_profile_photos (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg','image/png','image/webp')),
+    data BLOB NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  `,
 ];
 
 

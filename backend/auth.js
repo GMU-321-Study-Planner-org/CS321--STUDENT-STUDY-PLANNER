@@ -6,6 +6,7 @@ import {
   timingSafeEqual
 } from 'node:crypto';
 import { promisify } from 'node:util';
+import express from 'express';
 
 const deriveKey = promisify(scrypt);
 
@@ -229,6 +230,42 @@ export function setupAuth(app, db) {
     res.json({ user });
   });
 
+
+
+  // profile-photos-v11: private, per-account photo storage, max 2 MB, no SVG.
+  const photoTypes = ['image/jpeg','image/png','image/webp'];
+  const photoBytes = express.raw({ type: photoTypes, limit: '2mb' });
+  function recognizedPhoto(buf) {
+    if (!Buffer.isBuffer(buf) || buf.length < 12) return null;
+    if (buf.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'image/png';
+    if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+    if (buf.toString('ascii',0,4) === 'RIFF' && buf.toString('ascii',8,12) === 'WEBP') return 'image/webp';
+    return null;
+  }
+  app.get('/api/auth/avatar', requireAuth(db), (req,res) => {
+    const photo = db.prepare('SELECT mime_type, data FROM user_profile_photos WHERE user_id = ?').get(req.user.id);
+    res.set('Cache-Control','private, no-store');
+    res.set('X-Content-Type-Options','nosniff');
+    if (!photo) return res.status(404).end();
+    res.type(photo.mime_type).send(photo.data);
+  });
+  app.put('/api/auth/avatar', requireAuth(db), photoBytes, (req,res) => {
+    const photo = req.body;
+    const detected = recognizedPhoto(photo);
+    if (!detected || detected !== req.headers['content-type'] || photo.length > 2*1024*1024) {
+      return res.status(400).json({error:'Upload a JPG, PNG, or WebP image no larger than 2 MB.'});
+    }
+    db.prepare(`INSERT INTO user_profile_photos (user_id, mime_type, data, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET mime_type=excluded.mime_type,
+        data=excluded.data, updated_at=CURRENT_TIMESTAMP`)
+      .run(req.user.id, detected, photo);
+    res.json({ok:true});
+  });
+  app.delete('/api/auth/avatar', requireAuth(db), (req,res) => {
+    db.prepare('DELETE FROM user_profile_photos WHERE user_id = ?').run(req.user.id);
+    res.json({ok:true});
+  });
 
   // profile-settings-v2: authenticated account details and per-user preferences.
   app.put('/api/auth/profile', requireAuth(db), (req, res) => {
