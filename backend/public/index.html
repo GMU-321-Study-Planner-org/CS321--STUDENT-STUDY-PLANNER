@@ -85,6 +85,16 @@
           <div class="page-intro"><h2>Assignments</h2><p>Manage deadlines, track completed work, and plan your next steps.</p></div>
           <section class="app-panel queue" aria-labelledby="queue-h">
             <div class="section-head"><h2 id="queue-h">Up next</h2><div class="row"><button id="add-task-btn" class="ghost">+ Add task</button><button id="add-session-btn" class="ghost">Plan study session</button></div></div>
+            <!-- advanced-assignments-v7: non-destructive client-side search and filters -->
+            <div class="assignment-toolbar" role="search" aria-label="Find assignments">
+              <label class="assignment-filter-field assignment-search"><span>Search</span><input id="assignment-search" type="search" placeholder="Search assignments or courses" autocomplete="off"></label>
+              <label class="assignment-filter-field"><span>Course</span><select id="assignment-course"><option value="">All courses</option></select></label>
+              <label class="assignment-filter-field"><span>Status</span><select id="assignment-status"><option value="all">All statuses</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="upcoming">Upcoming</option><option value="completed">Completed</option><option value="active">Active only</option></select></label>
+              <label class="assignment-filter-field"><span>Sort by</span><select id="assignment-sort"><option value="due-asc">Deadline: earliest</option><option value="due-desc">Deadline: latest</option><option value="priority">Course priority</option><option value="title">Title: A-Z</option></select></label>
+              <button class="ghost assignment-reset" type="button" id="assignment-reset">Reset</button>
+            </div>
+            <p class="assignment-result-summary" id="assignment-result-summary" role="status" aria-live="polite"></p>
+            <p class="assignment-no-results" id="assignment-no-results" hidden>No assignments match those filters. Try resetting your search.</p>
             <ol id="queue-list"></ol>
             <section class="completed-section" aria-labelledby="completed-h"><h3 id="completed-h">Completed assignments</h3><ul id="completed-list"></ul></section>
           </section>
@@ -204,6 +214,21 @@
       </div>
     </form>
   </dialog>
+
+
+<!-- interactive-calendar-v5: calendar item/day details -->
+<dialog id="calendar-detail-dialog" class="calendar-detail-dialog" aria-labelledby="calendar-detail-title">
+  <div class="calendar-dialog-top">
+    <div>
+      <p class="eyebrow" id="calendar-detail-type">CALENDAR</p>
+      <h2 id="calendar-detail-title">Details</h2>
+    </div>
+    <button id="calendar-detail-close" class="ghost" type="button" aria-label="Close details">✕</button>
+  </div>
+  <div id="calendar-detail-content" class="calendar-detail-content"></div>
+  <div id="calendar-detail-actions" class="calendar-detail-actions"></div>
+  <p class="error" id="calendar-detail-error" role="alert" hidden></p>
+</dialog>
 
   <script src="app.js" defer></script>
 </body>

@@ -115,8 +115,8 @@ function renderWeek() {
   const days=Array.from({length},(_,i)=>new Date(year,month,1-offset+i));
   const key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const items=[
-    ...[...state.queue,...state.done].map(a=>({kind:'task',when:new Date(a.due_at),label:a.title,tag:a.course_code,done:!!a.completed})),
-    ...state.sessions.map(s=>({kind:'session',when:new Date(s.starts_at),label:s.topic||'Study session',tag:s.course_code||'Study',done:false}))
+    ...[...state.queue,...state.done].map(a=>({kind:'task',id:a.id,when:new Date(a.due_at),label:a.title,tag:a.course_code,done:!!a.completed})),
+    ...state.sessions.map(s=>({kind:'session',id:s.id,when:new Date(s.starts_at),label:s.topic||'Study session',tag:s.course_code||'Study',done:false}))
   ].filter(x=>!Number.isNaN(x.when.getTime())).sort((a,b)=>a.when-b.when);
   $('#week-h').textContent='Monthly calendar';
   $('#week-label').textContent=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(first);
@@ -124,24 +124,190 @@ function renderWeek() {
     <div class="month-cells">${days.map(d=>{
       const day=key(d), todays=items.filter(x=>key(x.when)===day), expanded=expandedCalendarDays.has(day);
       const visible=expanded?todays:todays.slice(0,3);
-      return `<div class="month-day ${d.getMonth()===month?'':'month-outside'} ${day===key(now)?'month-today':''}">
-        <div class="month-date"><span>${d.getDate()}</span>${day===key(now)?'<small>Today</small>':''}</div>
+      return `<div tabindex="0" role="button" data-open-day="${day}" aria-label="Plan items for ${day}" class="month-day ${d.getMonth()===month?'':'month-outside'} ${day===key(now)?'month-today':''}">
+        <div class="month-date"><button type="button" class="month-day-open" data-open-day="${day}" aria-label="Actions for ${day}">${d.getDate()}</button>${day===key(now)?'<small>Today</small>':''}</div>
         <ul class="month-day-items">${visible.map(x=>{
           const overdue=x.kind==='task'&&!x.done&&x.when<now;
-          return `<li class="month-item ${x.kind} ${overdue?'month-overdue':''} ${x.done?'month-done':''}">
+          return `<li tabindex="0" role="button" data-calendar-item="${x.kind}" data-item-id="${x.id}" class="month-item ${x.kind} ${overdue?'month-overdue':''} ${x.done?'month-done':''}">
             <span class="month-item-title">${esc(x.label)}</span><span class="month-item-meta">${esc(timeFmt.format(x.when))} · ${esc(x.tag||'')}</span></li>`;
         }).join('')}</ul>
         ${todays.length>3?`<button type="button" class="month-more" data-calendar-day="${day}" aria-expanded="${expanded}">${expanded?'Show less':`+${todays.length-3} more`}</button>`:''}
       </div>`;
     }).join('')}</div>`;
 }
+/* interactive-calendar-v5 */
+const detailDialog = document.querySelector('#calendar-detail-dialog');
+const detailContent = document.querySelector('#calendar-detail-content');
+const detailActions = document.querySelector('#calendar-detail-actions');
+const detailError = document.querySelector('#calendar-detail-error');
+const localDateForInput = date => {
+  const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0,16);
+};
+const selectedDayDate = key => {
+  const [y,m,d] = key.split('-').map(Number);
+  return new Date(y,m-1,d,12,0);
+};
+function openDayActions(key) {
+  const date = selectedDayDate(key);
+  if (Number.isNaN(date.getTime())) return;
+  document.querySelector('#calendar-detail-type').textContent = 'DAY PLANNER';
+  document.querySelector('#calendar-detail-title').textContent =
+    new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'}).format(date);
+  detailContent.textContent = 'What would you like to plan on this day?';
+  detailActions.replaceChildren();
+  detailError.hidden = true;
+  const task = document.createElement('button');
+  task.textContent = 'Add assignment';
+  task.type = 'button';
+  task.onclick = () => {
+    detailDialog.close();
+    openAddTask();
+    const due = new Date(date);
+    due.setHours(23,59,0,0);
+    document.querySelector('#task-form').elements.due.value = localDateForInput(due);
+  };
+  const session = document.createElement('button');
+  session.textContent = 'Plan study session';
+  session.type = 'button';
+  session.className = 'ghost';
+  session.onclick = () => {
+    detailDialog.close();
+    const form = document.querySelector('#session-form');
+    form.reset();
+    form.elements.start.value = localDateForInput(date);
+    document.querySelector('#session-dialog').showModal();
+  };
+  detailActions.append(task,session);
+  detailDialog.showModal();
+}
+function openCalendarItem(kind,id) {
+  const a = kind === 'task'
+    ? [...state.queue,...state.done].find(x=>String(x.id)===String(id))
+    : state.sessions.find(x=>String(x.id)===String(id));
+  if (!a) { say('That calendar item is no longer available.',true); return; }
+  const isTask = kind === 'task';
+  document.querySelector('#calendar-detail-type').textContent =
+    isTask ? (a.source === 'canvas' ? 'CANVAS ASSIGNMENT' : 'ASSIGNMENT') : 'STUDY SESSION';
+  document.querySelector('#calendar-detail-title').textContent =
+    isTask ? a.title : (a.topic || 'Study session');
+  const when = new Date(isTask ? a.due_at : a.starts_at);
+  const readable = Number.isNaN(when.getTime()) ? 'Unknown' :
+    new Intl.DateTimeFormat(undefined,{dateStyle:'full',timeStyle:'short'}).format(when);
+  detailContent.replaceChildren();
+  const rows = [
+    ['Course',a.course_code || 'General'],
+    [isTask?'Due':'Starts',readable],
+    [isTask?'Status':'Duration',isTask?(a.completed?'Completed':'Not completed'):(a.minutes+' minutes')],
+  ];
+  for(const [label,value] of rows) {
+    const row = document.createElement('div');
+    row.className = 'calendar-info-row';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const data = document.createElement('strong');
+    data.textContent = value;
+    row.append(name,data);
+    detailContent.append(row);
+  }
+  if (isTask && a.url && /^https?:\/\//i.test(a.url)) {
+    const link = document.createElement('a');
+    link.href = a.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'Open assignment in Canvas ↗';
+    detailContent.append(link);
+  }
+  detailError.hidden = true;
+  detailActions.replaceChildren();
+  if(isTask) {
+    const complete = document.createElement('button');
+    complete.type='button';
+    complete.textContent = a.completed ? 'Mark incomplete' : 'Mark complete';
+    complete.onclick = async()=>{
+      complete.disabled = true;
+      try {
+        await api(`/assignments/${a.id}`,{method:'PATCH',body:{completed:!a.completed}});
+        detailDialog.close();
+        await load();
+        say('Assignment updated.');
+      } catch(err) {
+        detailError.textContent=err.message;
+        detailError.hidden=false;
+        complete.disabled=false;
+      }
+    };
+    detailActions.append(complete);
+    if(a.source==='manual') {
+      const edit=document.createElement('button');
+      edit.type='button';
+      edit.className='ghost';
+      edit.textContent='Edit assignment';
+      edit.onclick=()=>{detailDialog.close();openEditTask(a.id);};
+      detailActions.append(edit);
+      // calendar-usability-v6: only manual assignments can be deleted.
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'ghost calendar-delete-action';
+      remove.textContent = 'Delete assignment';
+      remove.onclick = async () => {
+        if (!window.confirm(`Permanently delete "${a.title}"? This cannot be undone.`)) return;
+        remove.disabled = true;
+        detailError.hidden = true;
+        try {
+          await api(`/assignments/${a.id}`, {method:'DELETE'});
+          detailDialog.close();
+          await load();
+          say('Assignment deleted.');
+        } catch (err) {
+          detailError.textContent = err.message;
+          detailError.hidden = false;
+          remove.disabled = false;
+        }
+      };
+      detailActions.append(remove);
+    }
+  } else {
+    const close=document.createElement('button');
+    close.type='button';
+    close.className='ghost';
+    close.textContent='Close';
+    close.onclick=()=>detailDialog.close();
+    detailActions.append(close);
+  }
+  detailDialog.showModal();
+}
+document.querySelector('#calendar-detail-close').addEventListener('click',()=>detailDialog.close());
 $('#week-grid').addEventListener('click',e=>{
+  const item=e.target.closest('[data-calendar-item]');
+  if(item) {
+    openCalendarItem(item.dataset.calendarItem,item.dataset.itemId);
+    return;
+  }
+  const dayButton=e.target.closest('.month-day[data-open-day]');
   const btn=e.target.closest('[data-calendar-day]');
+  // Keep expand/collapse controls working without opening the day planner.
+  if (!btn && dayButton) {openDayActions(dayButton.dataset.openDay);return;}
   if(!btn)return;
   const day=btn.dataset.calendarDay;
   if(expandedCalendarDays.has(day))expandedCalendarDays.delete(day);
   else expandedCalendarDays.add(day);
   renderWeek();
+});
+$('#week-grid').addEventListener('keydown',e=>{
+  if(e.key!=='Enter' && e.key!==' ')return;
+  const item=e.target.closest('[data-calendar-item]');
+  if(item) {
+    e.preventDefault();
+    openCalendarItem(item.dataset.calendarItem,item.dataset.itemId);
+    return;
+  }
+  // Only trigger when the focused element is the cell itself, not a child button.
+  const day=e.target.matches('.month-day[data-open-day]') ? e.target : null;
+  if(day) {
+    e.preventDefault();
+    openDayActions(day.dataset.openDay);
+  }
 });
 
 function render() {
@@ -513,3 +679,73 @@ loadProfileSettings();
 // dashboard-improvements-v3: reuse the existing study-session dialog.
 document.querySelector('#dashboard-add-session').addEventListener('click', () =>
   document.querySelector('#session-dialog').showModal());
+
+/* advanced-assignments-v7: search/filter/sort existing rendered rows, no API changes */
+const assignmentFilters = { search:'', course:'', status:'all', sort:'due-asc' };
+const assignmentSearch = document.querySelector('#assignment-search');
+const assignmentCourse = document.querySelector('#assignment-course');
+const assignmentStatus = document.querySelector('#assignment-status');
+const assignmentSort = document.querySelector('#assignment-sort');
+function applyAssignmentFilters() {
+  const codes = [...new Set(state.courses.map(c=>c.code).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  assignmentCourse.replaceChildren(new Option('All courses',''));
+  codes.forEach(code=>assignmentCourse.add(new Option(code,code)));
+  if (!codes.includes(assignmentFilters.course)) assignmentFilters.course='';
+  assignmentCourse.value=assignmentFilters.course;
+  const activeNodes=[...document.querySelectorAll('#queue-list > li.task')];
+  const doneNodes=[...document.querySelectorAll('#completed-list > li.completed-task')];
+  const rows=[
+    ...state.queue.map(item=>({item,node:activeNodes.find(node=>node.querySelector('input[data-id]')?.dataset.id===String(item.id)),completed:false})),
+    ...state.done.map(item=>({item,node:doneNodes.find(node=>node.querySelector('button[data-restore]')?.dataset.restore===String(item.id)),completed:true}))
+  ].filter(row=>row.node);
+  const now=new Date();
+  const dayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const nextDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+  function matches({item,completed}) {
+    const haystack=`${item.title||''} ${item.course_code||''}`.toLocaleLowerCase();
+    if (!haystack.includes(assignmentFilters.search))return false;
+    if (assignmentFilters.course && item.course_code!==assignmentFilters.course)return false;
+    const due=new Date(item.due_at), status=assignmentFilters.status;
+    if(status==='completed'&&!completed)return false;
+    if(status==='active'&&completed)return false;
+    if(['overdue','today','upcoming'].includes(status)) {
+      if(completed||Number.isNaN(due.getTime()))return false;
+      if(status==='overdue'&&!(due<now))return false;
+      if(status==='today'&&!(due>=dayStart&&due<nextDay))return false;
+      if(status==='upcoming'&&!(due>=now))return false;
+    }
+    return true;
+  }
+  const compare=(a,b)=>{
+    const due=()=>new Date(a.item.due_at)-new Date(b.item.due_at);
+    if(assignmentFilters.sort==='due-desc')return -due();
+    if(assignmentFilters.sort==='priority')return (Number(b.item.course_priority)||0)-(Number(a.item.course_priority)||0)||due();
+    if(assignmentFilters.sort==='title')return String(a.item.title||'').localeCompare(String(b.item.title||''));
+    return due();
+  };
+  const visible=rows.filter(matches);
+  const visibleNodes=new Set(visible.map(row=>row.node));
+  rows.forEach(row=>row.node.hidden=!visibleNodes.has(row.node));
+  for(const [selector,completed] of [['#queue-list',false],['#completed-list',true]]) {
+    const list=document.querySelector(selector);
+    rows.filter(row=>row.completed===completed).sort(compare).forEach(row=>list.append(row.node));
+  }
+  const activeCount=visible.filter(row=>!row.completed).length;
+  document.querySelector('#assignment-result-summary').textContent=`${visible.length} matching assignment${visible.length===1?'':'s'} - ${activeCount} active, ${visible.length-activeCount} completed`;
+  document.querySelector('#assignment-no-results').hidden=visible.length!==0||rows.length===0;
+  document.querySelectorAll('#queue-list > li.empty, #completed-list > li.empty').forEach(el=>{
+    el.hidden=rows.length>0&&(assignmentFilters.search!==''||assignmentFilters.course!==''||assignmentFilters.status!=='all');
+  });
+}
+assignmentSearch.addEventListener('input',e=>{assignmentFilters.search=e.target.value.trim().toLocaleLowerCase();applyAssignmentFilters();});
+assignmentCourse.addEventListener('change',e=>{assignmentFilters.course=e.target.value;applyAssignmentFilters();});
+assignmentStatus.addEventListener('change',e=>{assignmentFilters.status=e.target.value;applyAssignmentFilters();});
+assignmentSort.addEventListener('change',e=>{assignmentFilters.sort=e.target.value;applyAssignmentFilters();});
+document.querySelector('#assignment-reset').addEventListener('click',()=>{
+  Object.assign(assignmentFilters,{search:'',course:'',status:'all',sort:'due-asc'});
+  assignmentSearch.value='';assignmentStatus.value='all';assignmentSort.value='due-asc';
+  applyAssignmentFilters();
+});
+const priorAssignmentsRender=render;
+render=function(){priorAssignmentsRender();applyAssignmentFilters();};
+applyAssignmentFilters();
